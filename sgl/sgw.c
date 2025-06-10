@@ -1,0 +1,73 @@
+/* * * * * * * * * * * * * * * * * */
+/* MIT License                     */
+/* Copyright (c) 2024 ANSI-Christ  */
+/* * * * * * * * * * * * * * * * * */
+
+#include <string.h>
+#include "sgw.h"
+
+SGC *sgw_pixel(SGW * const w,const unsigned int x,const unsigned int y){
+    return w->pixel+y*w->rectangle.w+x;
+}
+
+static void _sgc_convert(const SGC *c32,const unsigned int size,const unsigned char bits,void * const out){
+    switch(bits){
+        case 32: case 24:
+            if(c32!=(const SGC*)out) memcpy(out,c32,size<<2);
+            return;
+        case 16:{
+            unsigned int i=0;
+            unsigned short * const p=(unsigned short*)out;
+            for(;i<size;++i){
+                const SGC c=c32[i];
+                const unsigned char r=c>>16, g=c>>8, b=c;
+                p[i] = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+            }
+        } return;
+        case 15:{
+            unsigned int i=0;
+            unsigned short * const p=(unsigned short*)out;
+            for(;i<size;++i){
+                const SGC c=c32[i];
+                const unsigned char r=c>>16, g=c>>8, b=c;
+                p[i] = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+            }
+        } return;
+        case 8:{
+            unsigned int i=0;
+            unsigned char * const p=(unsigned char*)out;
+            for(;i<size;++i){
+                const SGC c=c32[i];
+                const unsigned char r=c>>16, g=c>>8, b=c;
+                p[i] = (r+g+b)/3;
+            }
+        } return;
+        case 1:{
+            unsigned int i=0;
+            unsigned char * const p=(unsigned char*)out;
+            for(;i<size;++i){
+                const SGC c=c32[i];
+                const unsigned char r=c>>16, g=c>>8, b=c;
+                p[i] = ((r+g+b)/3 > 128)*255;
+            }
+        } return;
+    }
+}
+
+static int _sgk_press(SGK key, SGK * const keys, SGK * const pressed){
+    if(!key) return SGE_UNKNOWN;
+    if(key>0xff) *keys|=key;
+    else *keys=(*keys&~0xff)|key;
+    *pressed=*keys;
+    return SGE_PRESS;
+}
+
+static int _sgk_release(SGK key, SGK * const keys, SGK * const released){
+    if(!key) return SGE_UNKNOWN;
+    *released=*keys;
+    if(key>0xff) *keys^=key;
+    else *keys&=~0xff;
+    return SGE_RELEASE;
+}
+
+#include "./sgw/sg_impl.h"
