@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "sgl/sgw.h"
+#include "sgl/sgl.h"
 
 
 int main(int argc,char **argv){
