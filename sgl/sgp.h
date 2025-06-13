@@ -22,10 +22,19 @@ void sgm_sub(const SGM *m,int x,int y,unsigned int w,unsigned int h,int flags,SG
 SGC *sgm_at(const SGM *m,int x,int y);
 
 void sgm_set(const SGM *m,int x,int y,SGC c);
-void sgm_row(const SGM *m,int x1,int x2,int y,SGC c);
-void sgm_column(const SGM *m,int x,int y1,int y2,SGC c);
 void sgm_insert(const SGM *m,int x,int y,const SGM *i);
-void sgm_point(const SGM *m,int x,int y,unsigned int w,SGC c);
+
+void sgm_row(const SGM *m,int x,int y,unsigned int l,SGC c);
+void sgm_column(const SGM *m,int x,int y,unsigned int l,SGC c);
+
+void sgm_fill(const SGM *m,int x,int y,SGC c,SGC border);
+void sgm_line(const SGM *m,int x1,int y1,int x2,int y2,unsigned int w,SGC c);
+
+void sgm_rect(const SGM *m,int x,int y,unsigned int l,unsigned int h,SGC c);
+void sgm_square(const SGM *m,int x,int y,unsigned int l,unsigned int h,SGC c);
+
+void sgm_ring(const SGM *m,int x,int y,unsigned int r,SGC c);
+void sgm_circle(const SGM *m,int x,int y,unsigned int r,SGC c);
 
 
 

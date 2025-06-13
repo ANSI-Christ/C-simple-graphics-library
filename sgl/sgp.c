@@ -62,27 +62,110 @@ void sgm_insert(const SGM * const m,const int x,const int y,const SGM * const i)
                 *cm=*ci;
 }
 
-void sgm_row(const SGM * const m,int x1,const int x2,const int y,const  SGC c){
-    for(;x1<x2;++x1) sgm_set(m,x1,y,c);
+void sgm_row(const SGM * const m,int x,const int y,const unsigned int l,const  SGC c){
+    const int e=x+l;
+    for(;x<e;++x) sgm_set(m,x,y,c);
 }
 
-void sgm_column(const SGM * const m,const int x,int y1,const int y2,const SGC c){
-    for(;y1<y2;++y1) sgm_set(m,x,y1,c);
+void sgm_column(const SGM * const m,const int x,int y,const unsigned int l,const SGC c){
+    const int e=y+l;
+    for(;y<e;++y) sgm_set(m,x,y,c);
 }
 
-void sgm_point(const SGM * const m,const int x,const int y,unsigned int w,const SGC c){
-    if(w-->1){
-        int l,r,dx=0,dy=w,delta=3-(w<<1);
+void sgm_line(const SGM * const m,int x1,int y1,const int x2,const int y2,const unsigned int w,const SGC c){
+    const int dx=abs(y2-y1), dy=abs(x2-x1), sx=y1 < y2 ? 1 : -1, sy=x1 < x2 ? 1 : -1;
+    int e=dx-dy;
+    sgm_circle(m,x2,y2,w,c);
+    while(y1!=y2 || x1!=x2){
+        const int e2=e<<1;
+        sgm_circle(m,x1,y1,w,c);
+        if(e2>-dy){
+            e-=dy;
+            y1+=sx;
+        }
+        if(e2<dx){
+            e+=dx;
+            x1+=sy;
+        }
+    }
+}
+
+void sgm_rect(const SGM * const m,const int x,const int y,const unsigned int w,const unsigned int h,const SGC c){
+    sgm_row(m,x,y,w,c);
+    sgm_column(m,x,y+1,h-2,c);
+    sgm_column(m,x+w-1,y+1,h-2,c);
+    sgm_row(m,x,y+h-1,w,c);
+}
+
+void sgm_square(const SGM * const m,const int x,const int y,const unsigned int w,const unsigned int h,const SGC c){
+    int i,j;
+    for(j=0;j<h;++j){
+        const int cy=y+j;
+        for(i=0;i<w;++i)
+            sgm_set(m,x+i,cy,c);
+    }
+}
+
+void sgm_circle(const SGM * const m,const int x,const int y,unsigned int r,const SGC c){
+    if(r-->1){
+        int t,dx=0,dy=r,delta=3-(r<<1);
         while(dx<=dy) {
-            l=x-dy; r=x+dy;
-            sgm_row(m,l,r,y+dx,c);
-            sgm_row(m,l,r,y-dx,c);
-            l=x-dx; r=x+dx;
-            sgm_row(m,l,r,y+dy,c);
-            sgm_row(m,l,r,y-dy,c);
+            t=x-dy; r=dy<<1;
+            sgm_row(m,t,y+dx,r,c);
+            sgm_row(m,t,y-dx,r,c);
+            t=x-dx; r=dx<<1;
+            sgm_row(m,t,y+dy,r,c);
+            sgm_row(m,t,y-dy,r,c);
             if (delta<0) delta+=(dx<<2)+6;
             else{delta+=((dx-dy)<<2)+10; --dy;}
             ++dx;
         }
     }else sgm_set(m,x,y,c);
 }
+
+static void _sgm_ring(const SGM * const m,const int x,const int y,const int dx, const int dy,const SGC c){
+    sgm_set(m,x-dx,y-dy,c);
+    sgm_set(m,x+dx,y-dy,c);
+    sgm_set(m,x-dx,y+dy,c);
+    sgm_set(m,x+dx,y+dy,c);
+}
+
+void sgm_ring(const SGM * const m,const int x,const int y,const unsigned int r,const SGC c){
+    int dx=0,dy=r,delta=3-(r<<1);
+    while(dx<dy) {
+        _sgm_ring(m,x,y,dy,dx,c);
+        _sgm_ring(m,x,y,dx,dy,c);
+        if (delta<0) delta+=(dx<<2)+6;
+        else delta+=((dx-(dy--))<<2)+10;
+        ++dx;
+    }
+    if(dx==dy) _sgm_ring(m,x,y,dy,dx,c);
+}
+
+
+static char _sgm_fill_check(const SGM * const m,const int x,const int y,const SGC c,const SGC border){
+    SGC *p=sgm_at(m,x,y);
+    return p && *p!=border && *p!=c;
+}
+
+static void _sgm_fill_row(const SGM * const m,int x,const int y,const int dir,const int l,const int r,const SGC c,const SGC border){
+    int xl=x, xr=x, yd;
+    while(_sgm_fill_check(m,--xl,y,c,border));
+    while(_sgm_fill_check(m,++xr,y,c,border));
+    for(x=++xl;x<xr;++x)
+        sgm_set(m,x,y,c);
+    for(x=xl;x<xr;++x)
+        if(_sgm_fill_check(m,x,(yd=y+dir),c,border))
+            _sgm_fill_row(m,x,yd,dir,xl,xr-1,c,border);
+    for(x=xl;x<l;++x)
+        if(_sgm_fill_check(m,x,(yd=y-dir),c,border))
+            _sgm_fill_row(m,x,yd,-dir,xl,xr-1,c,border);
+    for(x=r;x<xr;++x)
+        if(_sgm_fill_check(m,x,(yd=y-dir),c,border))
+            _sgm_fill_row(m,x,yd,-dir,xl,xr-1,c,border);
+}
+
+void sgm_fill(const SGM * const m,const int x,const int y,const SGC c,const SGC border){
+    if(sgm_at(m,x,y)) _sgm_fill_row(m,x,y,1,x,x,c,border);
+}
+
