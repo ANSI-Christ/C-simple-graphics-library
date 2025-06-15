@@ -6,8 +6,6 @@
 #ifndef SG_PAINT
 #define SG_PAINT
 
-#include "sgc.h"
-
 typedef struct{
     char * const c;
     const int x,y;
@@ -21,9 +19,12 @@ void sgm_sub(const SGM *m,int x,int y,unsigned int w,unsigned int h,unsigned cha
 
 void *sgm_at(const SGM *m,int x,int y);
 
+void sgm_convert(const SGM *m,const SGM *c,void (*converter)(const void *from,void *to,const void *arg),const void *arg);
+void sgm_paste(const SGM *m,int x,int y,const SGM *p,void (*converter)(const void *from,void *to,const void *arg),const void *arg);
+
+
 void sgm_set(const SGM *m,int x,int y,const void *c);
-void sgm_insert(const SGM *m,int x,int y,const SGM *i);
-void sgm_change(const SGM *m,int x,int y,const void *c1, const void *c2);
+void sgm_swap(const SGM *m,int x,int y,const void *c1, const void *c2);
 
 void sgm_row(const SGM *m,int x,int y,unsigned int l,const void *c);
 void sgm_column(const SGM *m,int x,int y,unsigned int l,const void *c);

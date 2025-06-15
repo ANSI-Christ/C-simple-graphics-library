@@ -3,25 +3,30 @@
 /* Copyright (c) 2024 ANSI-Christ  */
 /* * * * * * * * * * * * * * * * * */
 
+#include <stddef.h>
 #include <unistd.h>
 #include "sgp.h"
 
-#define SGM_CFG(_t_,_l_,_r_) do{ const union{const void *_;void **t_ptr;int *t_int;}_1_={(const void*)&(_l_)}; *_1_.t_##_t_ = (_r_); }while(0)
+#define SG_SET(_t_,_l_,_r_) do{ const union{const void *_;_t_ *t;}_1_={(const void*)&(_l_)}; *_1_.t=(_r_); }while(0)
+
+static void _sgm_converter(const void * const from,void * const to,const void * const size){
+    if(to && from) memcpy(to,from,(size_t)size);
+}
 
 void sgm_cfg(SGM * const m,void * const c,const unsigned int w,const unsigned int h,const unsigned int color_bytes){
     m->flags=0;
-    SGM_CFG(ptr,m->c,c);
-    SGM_CFG(int,m->color_bytes,color_bytes);
-    SGM_CFG(int,m->x,0);
-    SGM_CFG(int,m->y,0);
-    SGM_CFG(int,m->w,w);
-    SGM_CFG(int,m->h,h);
-    SGM_CFG(int,m->_.x,0);
-    SGM_CFG(int,m->_.y,0);
-    SGM_CFG(int,m->_.w[0],w);
-    SGM_CFG(int,m->_.h[0],h);
-    SGM_CFG(int,m->_.w[1],w);
-    SGM_CFG(int,m->_.h[1],h);
+    SG_SET(void*,m->c,c);
+    SG_SET(int,m->color_bytes,color_bytes);
+    SG_SET(int,m->x,0);
+    SG_SET(int,m->y,0);
+    SG_SET(int,m->w,w);
+    SG_SET(int,m->h,h);
+    SG_SET(int,m->_.x,0);
+    SG_SET(int,m->_.y,0);
+    SG_SET(int,m->_.w[0],w);
+    SG_SET(int,m->_.h[0],h);
+    SG_SET(int,m->_.w[1],w);
+    SG_SET(int,m->_.h[1],h);
 }
 
 void sgm_sub(const SGM * const m,int x,int y,const unsigned int w,const unsigned int h,const unsigned char flags,SGM * const s){
@@ -36,18 +41,18 @@ void sgm_sub(const SGM * const m,int x,int y,const unsigned int w,const unsigned
         b=m->_.h[0]+(u=m->_.y);
     }
     s->flags=0;
-    SGM_CFG(ptr,s->c,m->c);
-    SGM_CFG(int,s->color_bytes,m->color_bytes);
-    SGM_CFG(int,s->x,x);
-    SGM_CFG(int,s->y,y);
-    SGM_CFG(int,s->w,w);
-    SGM_CFG(int,s->h,h);
-    SGM_CFG(int,s->_.w[1],m->_.w[1]);
-    SGM_CFG(int,s->_.h[1],m->_.h[1]);
-    SGM_CFG(int,s->_.x,((unsigned int)x<l ? l : (unsigned int)x));
-    SGM_CFG(int,s->_.y,((unsigned int)y<u ? u : (unsigned int)y));
-    SGM_CFG(int,s->_.w[0],((unsigned int)x+w>r ? r-s->_.x : w));
-    SGM_CFG(int,s->_.h[0],((unsigned int)y+h>b ? b-s->_.y : h));
+    SG_SET(void*,s->c,m->c);
+    SG_SET(int,s->color_bytes,m->color_bytes);
+    SG_SET(int,s->x,x);
+    SG_SET(int,s->y,y);
+    SG_SET(int,s->w,w);
+    SG_SET(int,s->h,h);
+    SG_SET(int,s->_.w[1],m->_.w[1]);
+    SG_SET(int,s->_.h[1],m->_.h[1]);
+    SG_SET(int,s->_.x,((unsigned int)x<l ? l : (unsigned int)x));
+    SG_SET(int,s->_.y,((unsigned int)y<u ? u : (unsigned int)y));
+    SG_SET(int,s->_.w[0],((unsigned int)x+w>r ? r-s->_.x : w));
+    SG_SET(int,s->_.h[0],((unsigned int)y+h>b ? b-s->_.y : h));
 }
 
 void *sgm_at(const SGM * const m,const int _x,const int _y){
@@ -65,7 +70,7 @@ void sgm_set(const SGM * const m,const int x,const int y,const void * const c){
     if(p) memcpy(p,c,m->color_bytes);
 }
 
-void sgm_change(const SGM * const m,const int x,const int y,const void * const c1, const void * const c2){
+void sgm_swap(const SGM * const m,const int x,const int y,const void * const c1, const void * const c2){
     void * const c=sgm_at(m,x,y);
     if(c){
         if(!memcmp(c,c1,m->color_bytes)){
@@ -75,15 +80,6 @@ void sgm_change(const SGM * const m,const int x,const int y,const void * const c
         if(!memcmp(c,c2,m->color_bytes))
             memcpy(c,c1,m->color_bytes);
     }
-}
-
-void sgm_insert(const SGM * const m,const int x,const int y,const SGM * const i){
-    unsigned int w=i->w,h=i->h;
-    const void *ci;
-    while(h--)
-        while(w--)
-            if( (ci=sgm_at(i,w,h)) )
-                sgm_set(m,x+w,y+h,ci);
 }
 
 void sgm_row(const SGM * const m,int x,const int y,const unsigned int l,const void * const c){
@@ -130,6 +126,14 @@ void sgm_square(const SGM * const m,const int x,const int y,const unsigned int w
     }
 }
 
+static void _sgm_dxdy(const SGM * const m,const int x,const int y,const int dx, const int dy,const unsigned int r,const void * const c){
+    const int x1=x-dx, x2=x+dx, y1=y-dy, y2=y+dy;
+    sgm_circle(m,x1,y1,r,c);
+    sgm_circle(m,x2,y1,r,c);
+    sgm_circle(m,x1,y2,r,c);
+    sgm_circle(m,x2,y2,r,c);
+}
+
 void sgm_circle(const SGM * const m,const int x,const int y,unsigned int r,const void * const c){
     if(r>1){
         int t,dx=0,dy=--r,delta=3-(r<<1);
@@ -154,17 +158,9 @@ void sgm_circle(const SGM * const m,const int x,const int y,unsigned int r,const
     if(r) sgm_set(m,x,y,c);
 }
 
-static void _sgm_dxdy(const SGM * const m,const int x,const int y,const int dx, const int dy,const unsigned int r,const void * const c){
-    const int x1=x-dx, x2=x+dx, y1=y-dy, y2=y+dy;
-    sgm_circle(m,x1,y1,r,c);
-    sgm_circle(m,x2,y1,r,c);
-    sgm_circle(m,x1,y2,r,c);
-    sgm_circle(m,x2,y2,r,c);
-}
-
 void sgm_ring(const SGM * const m,const int x,const int y,unsigned int r,const unsigned int rp,const void * const c){
     if(r>1){
-        int dx=0,dy=--r,delta=3-((r)<<1);
+        int dx=0,dy=--r,delta=3-(r<<1);
         while(dx<dy) {
             _sgm_dxdy(m,x,y,dy,dx,rp,c);
             _sgm_dxdy(m,x,y,dx,dy,rp,c);
@@ -176,7 +172,7 @@ void sgm_ring(const SGM * const m,const int x,const int y,unsigned int r,const u
             _sgm_dxdy(m,x,y,dy,dx,rp,c);
         return;
     }
-    if(r) sgm_set(m,x,y,c);
+    if(r) sgm_circle(m,x,y,rp,c);
 }
 
 void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const unsigned int rp,const void * const c){
@@ -243,4 +239,41 @@ void sgm_fill(const SGM * const m,const int x,const int y,const void * const c,c
     if(sgm_at(m,x,y)) _sgm_fill_row(m,x,y,1,x,x,c,border);
 }
 
-#undef SGM_CFG
+void sgm_paste(const SGM *m,const int x,const int y,const SGM * const p,void (*converter)(const void *from,void *to,const void *arg),const void *arg){
+    unsigned int w=p->w,h=p->h;
+    const void *from;
+    void *to;
+    if(!converter){
+        if(m->color_bytes!=p->color_bytes)
+            return;
+        converter=(unsigned char(*)(void*,const void*,const void*))_sgm_converter;
+        arg=(const void*)(size_t)m->color_bytes;
+    }
+    while(h--)
+        while(w--)
+            if( (to=sgm_at(m,x+w,y+h)) && (from=sgm_at(p,w,h)) )
+                converter(from,to,arg);
+}
+
+void sgm_convert(const SGM * const m,const SGM * const c,void (*converter)(const void *from,void *to,const void *arg),const void *arg){
+    const float rx=(float)m->w/c->w;
+    const float ry=(float)m->h/c->h;
+    unsigned int dx,dy;
+    const void *from, *last_from=NULL;
+    void *to, *last_to;
+    if (!converter){
+        if(m->color_bytes!=c->color_bytes)
+            return;
+        converter=(unsigned char(*)(void*,const void*,const void*))_sgm_converter;
+        arg=(const void*)(size_t)m->color_bytes;
+    }
+    for (dy=0;dy<c->h;++dy)
+        for (dx=0;dx<c->w;++dx)
+            if( (to=sgm_at(c,dx,dy)) && (from=sgm_at(m,dx*rx,dy*ry)) ){
+                if(from!=last_from){
+                    converter((last_from=from),(last_to=to),arg);
+                    continue;
+                }
+                memcpy(to,last_to,c->color_bytes);
+            }
+}
