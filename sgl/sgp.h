@@ -19,8 +19,8 @@ void sgm_sub(const SGM *m,int x,int y,unsigned int w,unsigned int h,unsigned cha
 
 void *sgm_at(const SGM *m,int x,int y);
 
-void sgm_convert(const SGM *m,const SGM *c,void (*converter)(const void *from,void *to,const void *arg),const void *arg);
-void sgm_paste(const SGM *m,int x,int y,const SGM *p,void (*converter)(const void *from,void *to,const void *arg),const void *arg);
+void sgm_convert(const SGM *m,const SGM *c,char (*converter)(const void *from,void *to,const void *arg),const void *arg);
+void sgm_paste(const SGM *m,int x,int y,const SGM *p,char (*converter)(const void *from,void *to,const void *arg),const void *arg);
 
 
 void sgm_set(const SGM *m,int x,int y,const void *c);
@@ -40,6 +40,8 @@ void sgm_ring(const SGM *m,int x,int y,unsigned int r,unsigned int rp,const void
 
 void sgm_oval(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const void * const c);
 void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const unsigned int rp,const void * const c);
+
+void sgm_arc_ring(const SGM * const m,const int x,const int y,unsigned int r,const unsigned int rp,const float ang,const float rot,const void * const c);
 
 
 
