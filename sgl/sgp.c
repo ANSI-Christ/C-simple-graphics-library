@@ -6,7 +6,9 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <math.h>
+
 #include "sgp.h"
+#include "./sgf/sgf_5x12.c"
 
 #define SG_SET(_t_,_l_,_r_) do{ const union{const void *_;_t_ *t;}_1_={(const void*)&(_l_)}; *_1_.t=(_r_); }while(0)
 
@@ -16,7 +18,7 @@ static char _sgm_converter(const void * const from,void * const to,const void * 
 
 void sgm_cfg(SGM * const m,void * const c,const unsigned int w,const unsigned int h,const unsigned int color_bytes){
     m->flags=0;
-    SG_SET(void*,m->c,c);
+    SG_SET(void*,m->data,c);
     SG_SET(int,m->color_bytes,color_bytes);
     SG_SET(int,m->x,0);
     SG_SET(int,m->y,0);
@@ -42,7 +44,7 @@ void sgm_sub(const SGM * const m,int x,int y,const unsigned int w,const unsigned
         b=m->_.h[0]+(u=m->_.y);
     }
     s->flags=0;
-    SG_SET(void*,s->c,m->c);
+    SG_SET(void*,s->data,m->data);
     SG_SET(int,s->color_bytes,m->color_bytes);
     SG_SET(int,s->x,x);
     SG_SET(int,s->y,y);
@@ -50,18 +52,32 @@ void sgm_sub(const SGM * const m,int x,int y,const unsigned int w,const unsigned
     SG_SET(int,s->h,h);
     SG_SET(int,s->_.w[1],m->_.w[1]);
     SG_SET(int,s->_.h[1],m->_.h[1]);
-    SG_SET(int,s->_.x,((unsigned int)x<l ? l : (unsigned int)x));
-    SG_SET(int,s->_.y,((unsigned int)y<u ? u : (unsigned int)y));
-    SG_SET(int,s->_.w[0],((unsigned int)x+w>r ? r-s->_.x : w));
-    SG_SET(int,s->_.h[0],((unsigned int)y+h>b ? b-s->_.y : h));
+
+    if(x<(int)l) SG_SET(int,s->_.x,l);
+    else SG_SET(int,s->_.x,x);
+
+    if(y<(int)u) SG_SET(int,s->_.y,u);
+    else SG_SET(int,s->_.y,y);
+
+    if((unsigned int)x<s->_.w[1]) SG_SET(int,s->_.w[0],((unsigned int)x+w>r ? r-s->_.x : w));
+    else SG_SET(int,s->_.w[0],0);
+
+    if((unsigned int)y<s->_.h[1]) SG_SET(int,s->_.h[0],((unsigned int)y+h>b ? b-s->_.y : h));
+    else SG_SET(int,s->_.h[0],0);
 }
 
 void *sgm_at(const SGM * const m,const int _x,const int _y){
     const unsigned int x=_x+m->x;
-    if(x<m->w){
+    if(m->flags&SGM_UNLIMITED){
+        if(x<m->_.w[1]){
+            const unsigned int y=_y+m->y;
+            if(y<m->_.h[1]) return m->data+(x+y*m->_.w[1])*m->color_bytes;
+        }
+        return NULL;
+    }
+    if(x-m->_.x<m->_.w[0]){
         const unsigned int y=_y+m->y;
-        if(y<m->h && ( (m->flags&SGM_UNLIMITED) || (x-m->_.x<m->_.w[0] && y-m->_.y<m->_.h[0]) ) )
-            return m->c+(x+y*m->_.w[1])*m->color_bytes;
+        if(y-m->_.y<m->_.h[0]) return m->data+(x+y*m->_.w[1])*m->color_bytes;
     }
     return NULL;
 }
@@ -182,7 +198,8 @@ void sgm_circle(const SGM * const m,const int x,const int y,unsigned int r,const
     if(r) sgm_round(m,x,y,rp,c);
 }
 
-void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const unsigned int rp,const void * const c){
+void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int _rw,const unsigned int _rh,const unsigned int rp,const void * const c){
+    const unsigned int rw=_rw-1, rh=_rh-1;
     const long w2=rw*rw, h2=rh*rh, a2=h2<<1, a4=h2<<2, b2=w2<<1, b4=w2<<2;
     long d=a2*(rw-1)*rw+h2+b2*(1-h2);
     int dy=0,dx=rw;
@@ -209,7 +226,8 @@ void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int 
     }
 }
 
-void sgm_oval(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const void * const c){
+void sgm_oval(const SGM * const m,const int x,const int y,const unsigned int _rw,const unsigned int _rh,const void * const c){
+    const unsigned int rw=_rw-1, rh=_rh-1;
     const long w2=rw*rw, h2=rh*rh, a2=h2<<1, a4=h2<<2, b2=w2<<1, b4=w2<<2;
     long d=a2*(rw-1)*rw+h2+b2*(1-h2);
     int dy=0,dx=rw;
@@ -314,8 +332,9 @@ void sgm_arc_circle(const SGM * const m,const int x,const int y,const unsigned i
 #undef _SGDRAW
 }
 
-void sgm_arc_ellipse(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const unsigned int rp,const double ang,const double rot,const void * const c){
+void sgm_arc_ellipse(const SGM * const m,const int x,const int y,const unsigned int _rw,const unsigned int _rh,const unsigned int rp,const double ang,const double rot,const void * const c){
 #define _SGDRAW(_i_,_x_,_y_) if(_sgm_border_check(b[_i_],_x_,_y_) || _sgm_border_check(b[4],_x_,_y_)) sgm_round(m,_x_,_y_,rp,c);
+    const unsigned int rw=_rw-1, rh=_rh-1;
     const long w2=rw*rw, h2=rh*rh, a2=h2<<1, a4=h2<<2, b2=w2<<1, b4=w2<<2;
     long d=a2*(rw-1)*rw+h2+b2*(1-h2);
     int dy=0,dx=rw, b[5][4];
@@ -327,7 +346,6 @@ void sgm_arc_ellipse(const SGM * const m,const int x,const int y,const unsigned 
         _SGDRAW(0,x2,y1);
         _SGDRAW(2,x1,y2);
         _SGDRAW(3,x2,y2);
-
         if (d>=0) d-=a4*(--dx);
         d+=b2*(3+(dy<<1)); ++dy;
     }
@@ -371,7 +389,7 @@ void sgm_fill(const SGM * const m,const int x,const int y,const void * const c,c
     if(sgm_at(m,x,y)) _sgm_fill_row(m,x,y,1,x,x,c,border);
 }
 
-void sgm_paste(const SGM *m,const int x,const int y,const SGM * const p,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
+void sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
     unsigned int w=p->w,h=p->h;
     const void *from;
     void *to;
@@ -400,8 +418,8 @@ void sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const
         *(void**)&converter=_sgm_converter;
         arg=(const void*)(size_t)m->color_bytes;
     }
-    for (dy=0;dy<c->h;++dy)
-        for (dx=0;dx<c->w;++dx)
+    for(dy=0;dy<c->h;++dy)
+        for(dx=0;dx<c->w;++dx)
             if( (to=sgm_at(c,dx,dy)) && (from=sgm_at(m,dx*rx,dy*ry)) ){
                 if(from!=last_from){
                     cmp=converter((last_from=from),(last_to=to),arg);
@@ -410,5 +428,79 @@ void sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const
                 if(cmp) memcpy(to,last_to,c->color_bytes);
             }
 }
+
+
+struct _sgm_symb{
+    const void *data;
+    unsigned int size;
+};
+
+static char _sgm_char2symb(const char * const from,void * const to,const struct _sgm_symb * const p){
+    if(*from){
+        memcpy(to,p->data,p->size);
+        return 1;
+    }return 0;
+}
+
+static int _sga_y(const char *s,const unsigned int ofs,const unsigned int interval,const enum SGA align){
+    int res=1;
+    for(;*s;++s)
+        if(*s=='\n')
+            ++res;
+    res*=ofs; res-=interval;
+    return res-((align*res)>>1)+((align==2)-1);
+}
+
+static int _sga_x(const char *s,const unsigned int ofs,const unsigned int interval,const enum SGA align){
+    int res=0;
+    for(;*s && *s!='\n';++s)
+        ++res;
+    res*=ofs; res-=interval;
+    return (align*res)>>1;
+}
+
+void sgm_string(const SGM * const m,const int x,const int y,const void * const c,const SGF *f,enum SGA a,const char *s){
+    if(!s || !*s) return;
+    if(!f) f=sgf_default;
+    if(!a) a=SGA_DEFAULT;
+{
+    const unsigned char ax=(a&7)>>1, ay=((a>>3)&7)>>1;
+    const unsigned short w=((f->bm->bpw-1)>>3)+1, h=f->bm->bph*w;
+    const unsigned int mask=1<<(f->bm->bpw-1);
+    const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
+    const struct _sgm_symb info[1]={{c,m->color_bytes}};
+
+    int dy=y-_sga_y(s,oy,f->gap_h,ay);
+    int dx=x-_sga_x(s,ox,f->gap_w,ax);
+    unsigned int i,j;
+
+    SGM m_char[1], m_symb[1];
+    void * const converter=_sgm_char2symb;
+    char _buffer[1024], *p=( (unsigned int)f->bm->bpw*f->bm->bph<sizeof(_buffer) ? _buffer : malloc((unsigned int)f->bm->bpw*f->bm->bph<sizeof(_buffer)));
+
+    if(!p) return;
+    sgm_cfg(m_char,p,f->bm->bpw,f->bm->bph,sizeof(char));
+
+    for(;*s;dx+=ox){
+        const unsigned char id=*(s++);
+        const char *bm=f->bm->bits+id*h;
+
+        if(id=='\n'){
+            dy+=oy;
+            dx=x-_sga_x(s,ox,f->gap_w,ax);
+            continue;
+        }
+
+        for(i=0,p=m_char->data;i<m_char->h;++i,bm+=w)
+            for(j=0;j<m_char->w;++j,++p)
+                *p=*(bm+((f->bm->bpw-1-j)>>3)) & (mask>>j);
+
+        sgm_sub(m,dx,dy,f->w,f->h,0,m_symb);
+        sgm_convert(m_char,m_symb,(char(*)(const void*,void*,const void*))converter,info);
+    }
+    if(m_char->data!=_buffer)
+        free(m_char->data);
+}}
+
 
 #undef SG_SET

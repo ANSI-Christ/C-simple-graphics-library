@@ -27,7 +27,7 @@ int main(int argc,char **argv){
             case SGE_CURSOR:
                 if(w->keys&SGK_LB){
                     sgm_cfg(m,w->pixel,w->rectangle.w,w->rectangle.h,sizeof(SGC));
-                    sgm_circle(m,w->cursor.x,w->cursor.y,5+rand()%20,&c);
+                    sgm_round(m,w->cursor.x,w->cursor.y,5+rand()%20,&c);
                 }
                 if(w->keys&SGK_RB){
                     const int rect=5+rand()%20;
