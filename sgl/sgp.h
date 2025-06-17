@@ -35,16 +35,13 @@ void sgm_fill(const SGM *m,int x,int y,const void *c,const void *border);
 void sgm_rect(const SGM *m,int x,int y,unsigned int w,unsigned int h,const void *c);
 void sgm_square(const SGM *m,int x,int y,unsigned int w,unsigned int h,const void *c);
 
-void sgm_circle(const SGM *m,int x,int y,unsigned int r,const void *c);
-void sgm_ring(const SGM *m,int x,int y,unsigned int r,unsigned int rp,const void *c);
+void sgm_round(const SGM *m,int x,int y,unsigned int r,const void *c);
+void sgm_circle(const SGM *m,int x,int y,unsigned int r,unsigned int rp,const void *c);
 
 void sgm_oval(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const void * const c);
 void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const unsigned int rp,const void * const c);
 
-void sgm_arc_ring(const SGM * const m,const int x,const int y,unsigned int r,const unsigned int rp,const float ang,const float rot,const void * const c);
-
-
-
-
+void sgm_arc_cirlce(const SGM * const m,const int x,const int y,unsigned int r,const unsigned int rp,const double ang,const double rot,const void * const c);
+void sgm_arc_ellipse(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const unsigned int rp,const double ang,const double rot,const void * const c);
 
 #endif /* SG_PAINT */

@@ -127,44 +127,44 @@ void sgm_square(const SGM * const m,const int x,const int y,const unsigned int w
     }
 }
 
-void sgm_circle(const SGM * const m,const int x,const int y,unsigned int r,const void * const c){
+void sgm_round(const SGM * const m,const int x,const int y,unsigned int r,const void * const c){
     if(r>1){
         int t,dx=0,dy=--r,delta=3-(r<<1);
         while(dx<dy) {
-            t=x-dy; r=dy<<1;
-            sgm_row(m,t,y+dx,r,c);
-            sgm_row(m,t,y-dx,r,c);
             t=x-dx; r=dx<<1;
-            sgm_row(m,t,y+dy,r,c);
             sgm_row(m,t,y-dy,r,c);
+            sgm_row(m,t,y+dy,r,c);
+            t=x-dy; r=dy<<1;
+            sgm_row(m,t,y-dx,r,c);
+            sgm_row(m,t,y+dx,r,c);
             if (delta<0) delta+=(dx<<2)+6;
             else delta+=((dx-(dy--))<<2)+10;
             ++dx;
         }
         if(dx==dy){
-            t=x-dy; r=dy<<1;
-            sgm_row(m,t,y+dx,r,c);
+            t=x-dx; r=dy<<1;
             sgm_row(m,t,y-dx,r,c);
+            sgm_row(m,t,y+dx,r,c);
         }
         return;
     }
     if(r) sgm_set(m,x,y,c);
 }
 
-void sgm_ring(const SGM * const m,const int x,const int y,unsigned int r,const unsigned int rp,const void * const c){
+void sgm_circle(const SGM * const m,const int x,const int y,unsigned int r,const unsigned int rp,const void * const c){
     if(r>1){
         int dx=0,dy=--r,delta=3-(r<<1);
         while(dx<dy) {
             const int x1=x-dx, x2=x+dx, x3=x-dy, x4=x+dy;
             const int y1=y-dy, y2=y+dy, y3=y-dx, y4=y+dx;
-            sgm_circle(m,x2,y2,rp,c);
-            sgm_circle(m,x1,y2,rp,c);
-            sgm_circle(m,x1,y1,rp,c);
-            sgm_circle(m,x2,y1,rp,c);
-            sgm_circle(m,x4,y3,rp,c);
-            sgm_circle(m,x3,y3,rp,c);
-            sgm_circle(m,x3,y4,rp,c);
-            sgm_circle(m,x4,y4,rp,c);
+            sgm_round(m,x1,y1,rp,c);
+            sgm_round(m,x2,y1,rp,c);
+            sgm_round(m,x3,y3,rp,c);
+            sgm_round(m,x4,y3,rp,c);
+            sgm_round(m,x3,y4,rp,c);
+            sgm_round(m,x4,y4,rp,c);
+            sgm_round(m,x1,y2,rp,c);
+            sgm_round(m,x2,y2,rp,c);
             if (delta<0) delta+=(dx<<2)+6;
             else delta+=((dx-(dy--))<<2)+10;
             ++dx;
@@ -172,14 +172,14 @@ void sgm_ring(const SGM * const m,const int x,const int y,unsigned int r,const u
         if(dx==dy){
             const int x1=x-dx, x2=x+dx;
             const int y1=y-dy, y2=y+dy;
-            sgm_circle(m,x2,y2,rp,c);
-            sgm_circle(m,x1,y2,rp,c);
-            sgm_circle(m,x1,y1,rp,c);
-            sgm_circle(m,x2,y1,rp,c);
+            sgm_round(m,x1,y1,rp,c);
+            sgm_round(m,x2,y1,rp,c);
+            sgm_round(m,x1,y2,rp,c);
+            sgm_round(m,x2,y2,rp,c);
         }
         return;
     }
-    if(r) sgm_circle(m,x,y,rp,c);
+    if(r) sgm_round(m,x,y,rp,c);
 }
 
 void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const unsigned int rp,const void * const c){
@@ -189,10 +189,10 @@ void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int 
     while(h2*dx>w2*dy){
         const int x1=x-dx, x2=x+dx;
         const int y1=y-dy, y2=y+dy;
-        sgm_circle(m,x2,y2,rp,c);
-        sgm_circle(m,x1,y2,rp,c);
-        sgm_circle(m,x1,y1,rp,c);
-        sgm_circle(m,x2,y1,rp,c);
+        sgm_round(m,x1,y1,rp,c);
+        sgm_round(m,x2,y1,rp,c);
+        sgm_round(m,x1,y2,rp,c);
+        sgm_round(m,x2,y2,rp,c);
         if (d>=0) d-=a4*(--dx);
         d+=b2*(3+(dy<<1)); ++dy;
     }
@@ -200,10 +200,10 @@ void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int 
     while(dx>=0){
         const int x1=x-dx, x2=x+dx;
         const int y1=y-dy, y2=y+dy;
-        sgm_circle(m,x2,y2,rp,c);
-        sgm_circle(m,x1,y2,rp,c);
-        sgm_circle(m,x1,y1,rp,c);
-        sgm_circle(m,x2,y1,rp,c);
+        sgm_round(m,x1,y1,rp,c);
+        sgm_round(m,x2,y1,rp,c);
+        sgm_round(m,x1,y2,rp,c);
+        sgm_round(m,x2,y2,rp,c);
         if(d<=0){d+=b4*dy; ++dy;}
         d+=a2*(3-((--dx)<<1));
     }
@@ -234,45 +234,70 @@ static char _sgm_border_check(const int * const b,const int x,const int y){
     return (unsigned int)(x-b[0])<(unsigned int)b[1] && (unsigned int)(y-b[2])<(unsigned int)b[3];
 }
 
-static void _sgm_border_ring(int (* const b)[4],const int x,const int y,const unsigned int rw,const unsigned int rh,const float ang,const float rot){
-    const float ang_end=ang+rot;
-    const unsigned char end=((int)(ang_end/45.0f))&7;
-    unsigned char i=((int)(ang/45.0f))&7;
-    do{
-        const float octant_start=i*45.0f;
-        const float octant_end=(i+1)*45.0f;
-        const float active_start=fmaxf(ang,octant_start)*M_PI/180.0f;
-        const float active_end=fminf(ang_end,octant_end)*M_PI/180.0f;
+static void _sgm_border(int (* const b)[4],const int x,const int y,const unsigned int rw,const unsigned int rh,const double _ang,const double _rot){
+    const double rot=(fabs(_rot)<360.?_rot:360.), ang=fmod(_ang,360)+360;
+    const double ang_st=fmod(rot<0.? ang+360.+rot : ang,360.), ang_end=ang_st+fabs(rot);
+    const int x1=x+rw*cos(ang_st*M_PI/180.), y1=y-rh*sin(ang_st*M_PI/180.), x2=x+rw*cos(ang_end*M_PI/180.), y2=y-rh*sin(ang_end*M_PI/180.);
+    const unsigned char st=ang_st/90., end=ang_end/90.;
+    unsigned char i=end+1;
+    char cnt=3-(end-st);
+    int *p;
 
-        if(active_start<active_end){
-            const int x1=x+rw*cosf(active_start);
-            const int y1=y+rh*sinf(active_start);
-            const int x2=x+rw*cosf(active_end);
-            const int y2=y+rh*sinf(active_end);
+    b[0][0]=b[3][0]=x;
+    b[1][0]=b[2][0]=x-rw;
 
-            b[i][0]=fmin(fmin(x,x1),x2);
-            b[i][1]=fmax(fmax(x,x1),x2)-b[i][0];
-            b[i][2]=fmin(fmin(y,y1),y2);
-            b[i][3]=fmax(fmax(y,y1),y2)-b[i][1];
+    b[0][2]=b[1][2]=y-rh;
+    b[2][2]=b[3][2]=y;
+
+    b[0][1]=b[1][1]=b[2][1]=b[3][1]=rw;
+    b[0][3]=b[1][3]=b[2][3]=b[3][3]=rh;
+
+    p=b[st];
+    switch(st){
+        case 0: p[1]=x1-p[0];  p[3]=y1-p[2];  break;
+        case 1: p[1]=x1-p[0];  p[3]+=p[2]-y1; p[2]=y1; break;
+        case 2: p[1]+=p[0]-x1; p[3]+=p[2]-y1; p[0]=x1; p[2]=y1; break;
+        case 3: p[1]+=p[0]-x1; p[3]=y1-p[2];  p[0]=x1; break;
+    }
+
+    if(end-st==4){
+        p=b[4];
+        switch(st){
+            case 0: p[0]=x2;   p[2]=y2; p[1]=x+rw-x2;    p[3]=y-y2; break;
+            case 1: p[0]=x-rw; p[2]=y2; p[1]=x2-(x-rw); p[3]=y-y2; break;
+            case 2: p[0]=x-rw; p[2]=y;  p[1]=x2-(x-rw); p[3]=y2-y; break;
+            case 3: p[0]=x2;   p[2]=y;  p[1]=x+rw-x2;   p[3]=y2-y; break;
         }
-    }while((i=((i+1)&7))!=end);
+    }else{
+        p=b[end&3];
+        b[4][0]=b[4][1]=0;
+        switch(end&3){
+            case 0: p[1]+=p[0]-x2; p[3]+=y2-p[2]; p[0]=x2; p[2]=y2; break;
+            case 1: p[1]+=p[0]-x2; p[3]=y2-p[2];  p[0]=x2; break;
+            case 2: p[1]=x2-p[0];  p[3]=y2-p[2];  break;
+            case 3: p[1]=x2-p[0];  p[3]+=p[2]-y2; p[2]=y2; break;
+        }
+    }
+
+    for(;cnt>0;--cnt,++i) b[i&3][1]=0;
 }
 
-void sgm_arc_ring(const SGM * const m,const int x,const int y,unsigned int r,const unsigned int rp,const float ang,const float rot,const void * const c){
+void sgm_arc_circle(const SGM * const m,const int x,const int y,const unsigned int r,const unsigned int rp,const double ang,const double rot,const void * const c){
+#define _SGDRAW(_i_,_x_,_y_) if(_sgm_border_check(b[_i_],_x_,_y_) || _sgm_border_check(b[4],_x_,_y_)) sgm_round(m,_x_,_y_,rp,c);
     if(r>1){
-        int dx=0,dy=--r,delta=3-(r<<1), b[8][4]={{0}};
-        _sgm_border_ring(b,x,y,r,r,ang,rot);
+        int dx=0,dy=r-1,delta=3-(dy<<1), b[5][4];
+        _sgm_border(b,x,y,r,r,ang,rot);
         while(dx<dy) {
             const int x1=x-dx, x2=x+dx, x3=x-dy, x4=x+dy;
             const int y1=y-dy, y2=y+dy, y3=y-dx, y4=y+dx;
-            if(_sgm_border_check(b[0],x2,y2)) sgm_circle(m,x2,y2,rp,c);
-            if(_sgm_border_check(b[1],x1,y2)) sgm_circle(m,x1,y2,rp,c);
-            if(_sgm_border_check(b[2],x1,y1)) sgm_circle(m,x1,y1,rp,c);
-            if(_sgm_border_check(b[3],x2,y1)) sgm_circle(m,x2,y1,rp,c);
-            if(_sgm_border_check(b[4],x4,y3)) sgm_circle(m,x4,y3,rp,c);
-            if(_sgm_border_check(b[5],x3,y3)) sgm_circle(m,x3,y3,rp,c);
-            if(_sgm_border_check(b[6],x3,y4)) sgm_circle(m,x3,y4,rp,c);
-            if(_sgm_border_check(b[7],x4,y4)) sgm_circle(m,x4,y4,rp,c);
+            _SGDRAW(1,x1,y1);
+            _SGDRAW(0,x2,y1);
+            _SGDRAW(1,x3,y3);
+            _SGDRAW(0,x4,y3);
+            _SGDRAW(2,x3,y4);
+            _SGDRAW(3,x4,y4);
+            _SGDRAW(2,x1,y2);
+            _SGDRAW(3,x2,y2);
             if (delta<0) delta+=(dx<<2)+6;
             else delta+=((dx-(dy--))<<2)+10;
             ++dx;
@@ -280,12 +305,44 @@ void sgm_arc_ring(const SGM * const m,const int x,const int y,unsigned int r,con
         if(dx==dy){
             const int x1=x-dx, x2=x+dx;
             const int y1=y-dy, y2=y+dy;
-            if(_sgm_border_check(b[0],x2,y2)) sgm_circle(m,x2,y2,rp,c);
-            if(_sgm_border_check(b[1],x1,y2)) sgm_circle(m,x1,y2,rp,c);
-            if(_sgm_border_check(b[2],x1,y1)) sgm_circle(m,x1,y1,rp,c);
-            if(_sgm_border_check(b[3],x2,y1)) sgm_circle(m,x2,y1,rp,c);
+            _SGDRAW(1,x1,y1);
+            _SGDRAW(0,x2,y1);
+            _SGDRAW(2,x1,y2);
+            _SGDRAW(3,x2,y2);
         }
     }
+#undef _SGDRAW
+}
+
+void sgm_arc_ellipse(const SGM * const m,const int x,const int y,const unsigned int rw,const unsigned int rh,const unsigned int rp,const double ang,const double rot,const void * const c){
+#define _SGDRAW(_i_,_x_,_y_) if(_sgm_border_check(b[_i_],_x_,_y_) || _sgm_border_check(b[4],_x_,_y_)) sgm_round(m,_x_,_y_,rp,c);
+    const long w2=rw*rw, h2=rh*rh, a2=h2<<1, a4=h2<<2, b2=w2<<1, b4=w2<<2;
+    long d=a2*(rw-1)*rw+h2+b2*(1-h2);
+    int dy=0,dx=rw, b[5][4];
+    _sgm_border(b,x,y,rw,rh,ang,rot);
+    while(h2*dx>w2*dy){
+        const int x1=x-dx, x2=x+dx;
+        const int y1=y-dy, y2=y+dy;
+        _SGDRAW(1,x1,y1);
+        _SGDRAW(0,x2,y1);
+        _SGDRAW(2,x1,y2);
+        _SGDRAW(3,x2,y2);
+
+        if (d>=0) d-=a4*(--dx);
+        d+=b2*(3+(dy<<1)); ++dy;
+    }
+    d=b2*(dy+1)*dy+a2*(dx*(dx-2)+1)+(1-a2)*w2;
+    while(dx>=0){
+        const int x1=x-dx, x2=x+dx;
+        const int y1=y-dy, y2=y+dy;
+        _SGDRAW(1,x1,y1);
+        _SGDRAW(0,x2,y1);
+        _SGDRAW(2,x1,y2);
+        _SGDRAW(3,x2,y2);
+        if(d<=0){d+=b4*dy; ++dy;}
+        d+=a2*(3-((--dx)<<1));
+    }
+#undef _SGDRAW
 }
 
 static char _sgm_cmp(const SGM * const m,const int x,const int y,const void * const c,const void * const border){
