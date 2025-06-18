@@ -59,10 +59,10 @@ void sgm_sub(const SGM * const m,int x,int y,const unsigned int w,const unsigned
     if(y<(int)u) SG_SET(int,s->_.y,u);
     else SG_SET(int,s->_.y,y);
 
-    if((unsigned int)x<s->_.w[1]) SG_SET(int,s->_.w[0],((unsigned int)x+w>r ? r-s->_.x : w));
+    if((unsigned int)x<r) SG_SET(int,s->_.w[0],((unsigned int)x+w>r ? r-s->_.x : w));
     else SG_SET(int,s->_.w[0],0);
 
-    if((unsigned int)y<s->_.h[1]) SG_SET(int,s->_.h[0],((unsigned int)y+h>b ? b-s->_.y : h));
+    if((unsigned int)y<b) SG_SET(int,s->_.h[0],((unsigned int)y+h>b ? b-s->_.y : h));
     else SG_SET(int,s->_.h[0],0);
 }
 
