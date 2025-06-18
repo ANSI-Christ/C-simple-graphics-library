@@ -478,6 +478,7 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
     if(!s || !*s) return;
     if(!f) f=sgf_default;
 {   const struct _sgm_symb info[1]={{c,m->color_bytes}};
+    const unsigned int char_begin=f->bm->cb, char_end=1+f->bm->ce;
     const unsigned int mask=1<<(f->bm->bpw-1);
     const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
     const unsigned short w=((f->bm->bpw-1)>>3)+1, h=f->bm->bph*w;
@@ -495,20 +496,20 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
 
     for(;*s;dx+=ox){
         const unsigned char id=*(s++);
-        const char *bm=f->bm->bits+id*h;
-
         if(id=='\n'){
             dy+=oy;
             dx=x-_sga_x(s,ox,f->gap_w,a);
             continue;
         }
 
-        for(i=0,p=m_char->data;i<m_char->h;++i,bm+=w)
-            for(j=0;j<m_char->w;++j,++p)
-                *p=*(bm+((f->bm->bpw-1-j)>>3)) & (mask>>j);
-
-        sgm_sub(m,dx,dy,f->w,f->h,0,m_symb);
-        sgm_convert(m_char,m_symb,(char(*)(const void*,void*,const void*))converter,info);
+        if(id>=char_begin && id<char_end){
+            const char *bm=f->bm->bits+(id-char_begin)*h;
+            for(i=0,p=m_char->data;i<m_char->h;++i,bm+=w)
+                for(j=0;j<m_char->w;++j,++p)
+                    *p=*(bm+((f->bm->bpw-1-j)>>3)) & (mask>>j);
+            sgm_sub(m,dx,dy,f->w,f->h,0,m_symb);
+            sgm_convert(m_char,m_symb,(char(*)(const void*,void*,const void*))converter,info);
+        }
     }
     if(m_char->data!=_buffer)
         free(m_char->data);

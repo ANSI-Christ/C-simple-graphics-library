@@ -8,7 +8,8 @@
 
 typedef struct{
     const char *bits;
-    unsigned short bpw, bph;
+    unsigned char bpw, bph;
+    unsigned char cb, ce;
 }const SGB;
 
 typedef struct{
