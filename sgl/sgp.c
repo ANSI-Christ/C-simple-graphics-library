@@ -33,7 +33,7 @@ void sgm_cfg(SGM * const m,void * const c,const unsigned int w,const unsigned in
 }
 
 void sgm_sub(const SGM * const m,int x,int y,const unsigned int w,const unsigned int h,const unsigned char flags,SGM * const s){
-    unsigned int l,r,u,b;
+    int l,r,u,b;
     x+=m->x; y+=m->y;
     if(flags & SGM_UNLIMITED){
         l=u=0;
@@ -59,10 +59,10 @@ void sgm_sub(const SGM * const m,int x,int y,const unsigned int w,const unsigned
     if(y<(int)u) SG_SET(int,s->_.y,u);
     else SG_SET(int,s->_.y,y);
 
-    if((unsigned int)x<r) SG_SET(int,s->_.w[0],((unsigned int)x+w>r ? r-s->_.x : w));
+    if(x<(int)r) SG_SET(int,s->_.w[0],(x+(int)w>r ? r-s->_.x : w));
     else SG_SET(int,s->_.w[0],0);
 
-    if((unsigned int)y<b) SG_SET(int,s->_.h[0],((unsigned int)y+h>b ? b-s->_.y : h));
+    if(y<(int)b) SG_SET(int,s->_.h[0],(y+(int)h>b ? b-s->_.y : h));
     else SG_SET(int,s->_.h[0],0);
 }
 
@@ -386,6 +386,13 @@ static void _sgm_fill_row(const SGM * const m,int x,const int y,const int dir,co
 }
 
 void sgm_fill(const SGM * const m,const int x,const int y,const void * const c,const void * const border){
+    if(!border){
+        unsigned int i,j;
+        for(i=0;i<m->h;++i)
+            for(j=0;j<m->w;++j)
+                sgm_set(m,j,i,c);
+        return;
+    }
     if(sgm_at(m,x,y)) _sgm_fill_row(m,x,y,1,x,x,c,border);
 }
 
@@ -408,10 +415,10 @@ void sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,c
 void sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
     const float rx=(float)m->w/c->w;
     const float ry=(float)m->h/c->h;
-    unsigned int dx,dy;
     const void *from, *last_from=NULL;
     void *to, *last_to;
-    char cmp;
+    unsigned int dx,dy;
+    char cmp=0;
     if (!converter){
         if(m->color_bytes!=c->color_bytes)
             return;
@@ -442,36 +449,41 @@ static char _sgm_char2symb(const char * const from,void * const to,const struct 
     }return 0;
 }
 
-static int _sga_y(const char *s,const unsigned int ofs,const unsigned int interval,const enum SGA align){
+static int _sga_y(const char *s,const unsigned int ofs,const unsigned int interval,const unsigned char align){
     int res=1;
     for(;*s;++s)
         if(*s=='\n')
             ++res;
     res*=ofs; res-=interval;
-    return res-((align*res)>>1)+((align==2)-1);
+    switch(align&(SGF_YB|SGF_YC|SGF_YT)){
+        case SGF_YT: return -res-1;
+        case SGF_YC: return res>>1;
+        default: return res-1;
+    }
 }
 
-static int _sga_x(const char *s,const unsigned int ofs,const unsigned int interval,const enum SGA align){
+static int _sga_x(const char *s,const unsigned int ofs,const unsigned int interval,const unsigned char align){
     int res=0;
     for(;*s && *s!='\n';++s)
         ++res;
     res*=ofs; res-=interval;
-    return (align*res)>>1;
+    switch(align&(SGF_XL|SGF_XR|SGF_XC)){
+        case SGF_XL: return 0;
+        case SGF_XC: return res>>1;
+        default: return res;
+    }
 }
 
-void sgm_string(const SGM * const m,const int x,const int y,const void * const c,const SGF *f,enum SGA a,const char *s){
+void sgm_string(const SGM * const m,const int x,const int y,const void * const c,const SGF *f,const enum SGF_ALIGN a,const char *s){
     if(!s || !*s) return;
     if(!f) f=sgf_default;
-    if(!a) a=SGA_DEFAULT;
-{
-    const unsigned char ax=(a&7)>>1, ay=((a>>3)&7)>>1;
-    const unsigned short w=((f->bm->bpw-1)>>3)+1, h=f->bm->bph*w;
+{   const struct _sgm_symb info[1]={{c,m->color_bytes}};
     const unsigned int mask=1<<(f->bm->bpw-1);
     const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
-    const struct _sgm_symb info[1]={{c,m->color_bytes}};
+    const unsigned short w=((f->bm->bpw-1)>>3)+1, h=f->bm->bph*w;
 
-    int dy=y-_sga_y(s,oy,f->gap_h,ay);
-    int dx=x-_sga_x(s,ox,f->gap_w,ax);
+    int dy=y-_sga_y(s,oy,f->gap_h,a);
+    int dx=x-_sga_x(s,ox,f->gap_w,a);
     unsigned int i,j;
 
     SGM m_char[1], m_symb[1];
@@ -487,7 +499,7 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
 
         if(id=='\n'){
             dy+=oy;
-            dx=x-_sga_x(s,ox,f->gap_w,ax);
+            dx=x-_sga_x(s,ox,f->gap_w,a);
             continue;
         }
 
@@ -502,5 +514,86 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
         free(m_char->data);
 }}
 
+void sgf_string_rect(const SGF *f,const char *s,unsigned int * const w,unsigned int * const h){
+    *w=*h=0;
+    if(!s) return;
+    if(!f) f=sgf_default;
+{   const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
+    const char *p;
+    unsigned int dx=0,dy=0,l;
+    while( (p=strchr(s,'\n')) ){
+        ++dy; l=(size_t)(p-s); s=p+1;
+        if(l>dx) dx=l;
+    }
+    *w=dx*ox-f->gap_w;
+    *h=dy*oy-f->gap_h;
+}}
+
+const char *sgf_string_at(const SGF *f,const enum SGF_ALIGN a,const char *s,const int x,const int y){
+    if(!s) return NULL;
+    if(!f) f=sgf_default;
+{   const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
+    int i;
+
+    if( y<(i=-_sga_y(s,oy,f->gap_h,a)) )
+        return (const char*)1;
+    while( y>=(i+=oy) ){
+        const char * const p=strchr(s,'\n');
+        if(!p) return (const char*)2;
+        s=p+1;
+    }
+
+    if( x<(i=-_sga_x(s,ox,f->gap_w,a)) )
+        return (const char*)1;
+    while( *s && x>=(i+=ox) ){
+        if(*s=='\n') return (const char*)2;
+        ++s;
+    }
+    return s;
+}}
+
+
+void sgp_init(SGP * const p,void * const c,const unsigned int w,const unsigned int h,const unsigned int color_bytes,const unsigned char default_box){
+    sgm_cfg(&p->m,c,w,h,color_bytes);
+    if(default_box) sgp_box(p,0,0,w,h);
+}
+
+void sgp_cfg(SGP * const p,const SGM * const m,const unsigned char default_box){
+    memcpy(p,m,sizeof(*m));
+    if(default_box) sgp_box(p,0,0,m->w,m->h);
+}
+
+void sgp_box(SGP * const p,const double x1,const double y1,const double x2,const double y2){
+    SG_SET(double,p->x1,x1);
+    SG_SET(double,p->y1,y1);
+    SG_SET(double,p->x2,x2);
+    SG_SET(double,p->y2,y2);
+    SG_SET(double,p->_.dx,p->m.w/fabs(x1-x2));
+    SG_SET(double,p->_.dy,p->m.h/fabs(y1-y2));
+}
+
+static double _sgp_interpolation(const double x1,const double y1,const double x2,double y2,const double y3){
+    if(fabs( (y2-=y1) )<1.e-5) return x1;
+    return x1+(y3-y1)*((x2-x1)/(y2));
+}
+
+static void _sgp_convert(const SGP * const p,double * const x, double * const y){
+    *x=_sgp_interpolation(0,p->x1,p->m.w,p->x2,*x);
+    *y=_sgp_interpolation(0,p->y1,p->m.h,p->y2,*y);
+}
+
+void *sgp_pixel(const SGP * const p,const int pixel_x,const int pixel_y,double * const x,double * const y){
+    void * const c=sgm_at(&p->m,pixel_x,pixel_y);
+    if(c){
+        if(x) *x=_sgp_interpolation(p->x1,0,p->x2,p->m.w,pixel_x);
+        if(y) *y=_sgp_interpolation(p->y1,0,p->y2,p->m.h,pixel_y);
+        return c;
+    } return NULL;
+}
+
+void sgp_point(const SGP * const p,double x,double y,const unsigned int r,const void * const c){
+    _sgp_convert(p,&x,&y);
+    sgm_round(&p->m,x,y,r,c);
+}
 
 #undef SG_SET

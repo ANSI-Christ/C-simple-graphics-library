@@ -146,7 +146,8 @@ void sgw_title(SGW * const _w,const char *title){
 
 void sgw_async(SGW * const _w,const void * const p){
     SGW_UNCONST(w,_w);
-    write(w->ctrl[1],&p,sizeof(p));
+    const int x=write(w->ctrl[1],&p,sizeof(p));
+    return; if(x){}
 }
 
 void sgw_render(SGW * const _w){
