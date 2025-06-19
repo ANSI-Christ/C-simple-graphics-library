@@ -60,8 +60,8 @@ void sgm_swap(const SGM *m,int x,int y,const void *c1, const void *c2);
 void sgm_row(const SGM *m,int x,int y,unsigned int l,const void *c);
 void sgm_column(const SGM *m,int x,int y,unsigned int l,const void *c);
 
-void sgm_line(const SGM *m,int x1,int y1,int x2,int y2,const void *c);
 void sgm_fill(const SGM *m,int x,int y,const void *c,const void *border);
+void sgm_line(const SGM *m,int x1,int y1,int x2,int y2,unsigned int rp,const void *c);
 
 void sgm_rect(const SGM *m,int x,int y,unsigned int w,unsigned int h,const void *c);
 void sgm_square(const SGM *m,int x,int y,unsigned int w,unsigned int h,const void *c);
@@ -75,7 +75,10 @@ void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int 
 void sgm_arc_cirlce(const SGM * const m,const int x,const int y,unsigned int r,const unsigned int rp,const double ang,const double rot,const void * const c);
 void sgm_arc_ellipse(const SGM * const m,const int x,const int y,const unsigned int rx,const unsigned int ry,const unsigned int rp,const double ang,const double rot,const void * const c);
 
+void sgm_bmp(const SGM *m,const char *name);
 void sgm_string(const SGM * const m,int x,int y,const void *c,const SGF *f,enum SGF_ALIGN a,const char *s);
+
+
 
 
 typedef struct{
@@ -93,6 +96,7 @@ void sgp_box(SGP *p,double left,double top,double right,double bottom);
 void *sgp_pixel(const SGP *p,int pixel_x,int pixel_y,double *x,double *y);
 
 void sgp_point(const SGP *p,double x,double y,unsigned int r,const void *c);
+void sgp_line(const SGP *p,double x1,double y1,double x2,double y2,unsigned int rp,const void *c);
 
 
 #endif /* SG_PAINT */

@@ -5,6 +5,7 @@
 
 #include <stddef.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <math.h>
 
 #include "sgp.h"
@@ -109,13 +110,13 @@ void sgm_column(const SGM * const m,const int x,int y,const unsigned int l,const
     for(;y<e;++y) sgm_set(m,x,y,c);
 }
 
-void sgm_line(const SGM * const m,int x1,int y1,const int x2,const int y2,const void * const c){
+void sgm_line(const SGM * const m,int x1,int y1,const int x2,const int y2,const unsigned int rp,const void * const c){
     const int dx=abs(y2-y1), dy=abs(x2-x1), sx=y1 < y2 ? 1 : -1, sy=x1 < x2 ? 1 : -1;
     int e=dx-dy;
     sgm_set(m,x2,y2,c);
     while(y1!=y2 || x1!=x2){
         const int e2=e<<1;
-        sgm_set(m,x1,y1,c);
+        sgm_round(m,x1,y1,rp,c);
         if(e2>-dy){
             e-=dy;
             y1+=sx;
@@ -334,31 +335,33 @@ void sgm_arc_circle(const SGM * const m,const int x,const int y,const unsigned i
 
 void sgm_arc_ellipse(const SGM * const m,const int x,const int y,const unsigned int _rw,const unsigned int _rh,const unsigned int rp,const double ang,const double rot,const void * const c){
 #define _SGDRAW(_i_,_x_,_y_) if(_sgm_border_check(b[_i_],_x_,_y_) || _sgm_border_check(b[4],_x_,_y_)) sgm_round(m,_x_,_y_,rp,c);
-    const unsigned int rw=_rw-1, rh=_rh-1;
-    const long w2=rw*rw, h2=rh*rh, a2=h2<<1, a4=h2<<2, b2=w2<<1, b4=w2<<2;
-    long d=a2*(rw-1)*rw+h2+b2*(1-h2);
-    int dy=0,dx=rw, b[5][4];
-    _sgm_border(b,x,y,rw,rh,ang,rot);
-    while(h2*dx>w2*dy){
-        const int x1=x-dx, x2=x+dx;
-        const int y1=y-dy, y2=y+dy;
-        _SGDRAW(1,x1,y1);
-        _SGDRAW(0,x2,y1);
-        _SGDRAW(2,x1,y2);
-        _SGDRAW(3,x2,y2);
-        if (d>=0) d-=a4*(--dx);
-        d+=b2*(3+(dy<<1)); ++dy;
-    }
-    d=b2*(dy+1)*dy+a2*(dx*(dx-2)+1)+(1-a2)*w2;
-    while(dx>=0){
-        const int x1=x-dx, x2=x+dx;
-        const int y1=y-dy, y2=y+dy;
-        _SGDRAW(1,x1,y1);
-        _SGDRAW(0,x2,y1);
-        _SGDRAW(2,x1,y2);
-        _SGDRAW(3,x2,y2);
-        if(d<=0){d+=b4*dy; ++dy;}
-        d+=a2*(3-((--dx)<<1));
+    if(_rw && _rh){
+        const unsigned int rw=_rw-1, rh=_rh-1;
+        const long w2=rw*rw, h2=rh*rh, a2=h2<<1, a4=h2<<2, b2=w2<<1, b4=w2<<2;
+        long d=a2*(rw-1)*rw+h2+b2*(1-h2);
+        int dy=0,dx=rw, b[5][4];
+        _sgm_border(b,x,y,rw,rh,ang,rot);
+        while(h2*dx>w2*dy){
+            const int x1=x-dx, x2=x+dx;
+            const int y1=y-dy, y2=y+dy;
+            _SGDRAW(1,x1,y1);
+            _SGDRAW(0,x2,y1);
+            _SGDRAW(2,x1,y2);
+            _SGDRAW(3,x2,y2);
+            if (d>=0) d-=a4*(--dx);
+            d+=b2*(3+(dy<<1)); ++dy;
+        }
+        d=b2*(dy+1)*dy+a2*(dx*(dx-2)+1)+(1-a2)*w2;
+        while(dx>=0){
+            const int x1=x-dx, x2=x+dx;
+            const int y1=y-dy, y2=y+dy;
+            _SGDRAW(1,x1,y1);
+            _SGDRAW(0,x2,y1);
+            _SGDRAW(2,x1,y2);
+            _SGDRAW(3,x2,y2);
+            if(d<=0){d+=b4*dy; ++dy;}
+            d+=a2*(3-((--dx)<<1));
+        }
     }
 #undef _SGDRAW
 }
@@ -419,7 +422,7 @@ void sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const
     void *to, *last_to;
     unsigned int dx,dy;
     char cmp=0;
-    if (!converter){
+    if(!converter){
         if(m->color_bytes!=c->color_bytes)
             return;
         *(void**)&converter=_sgm_converter;
@@ -436,6 +439,40 @@ void sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const
             }
 }
 
+void sgm_bmp(const SGM * const m,const char * const name){
+    FILE * const f=fopen(name,"wb");
+    if(f){
+        const unsigned int palitra_count=(m->color_bytes==1)*256, palitra_size=palitra_count*sizeof(int), extra_color=0;
+        const unsigned char extra_bytes=(m->w*(4-m->color_bytes))&3;
+        const struct{
+            unsigned int a,b,c,d,e,f;
+            unsigned short g,h;
+            unsigned int i,j,k,l,m,n;
+        }header[1]={{
+            14+40 + palitra_size + m->color_bytes*m->w*m->h + m->h*extra_bytes, 0,
+            14+40 + palitra_size, 40, m->w, m->h, 1, m->color_bytes<<3, 0,0,0,0,
+            1<<(m->color_bytes<<3),0
+        }};
+        unsigned int i,j;
+
+        fwrite(((((const union{unsigned char _; int e;}){1}).e==1)?"BM":"MB"),2,1,f);
+        fwrite(header,sizeof(header),1,f);
+        for(i=0;i<palitra_count;++i){
+            const int c=(i&0x3)<<16 | (i&0x1c)<<8 | (i&0xe0);
+            fwrite(&c,sizeof(c),1,f);
+        }
+        for(i=m->h-1;i<m->h;--i){
+            for(j=0;j<m->w;++j){
+                const void * const c=sgm_at(m,j,i);
+                fwrite((c?c:&extra_color),m->color_bytes,1,f);
+            }
+            for(j=0;j<extra_bytes;++j)
+                fwrite(&extra_color,1,1,f);
+        }
+        fclose(f);
+    }
+}
+
 
 struct _sgm_symb{
     const void *data;
@@ -449,33 +486,32 @@ static char _sgm_char2symb(const char * const from,void * const to,const struct 
     }return 0;
 }
 
-static int _sga_y(const char *s,const unsigned int ofs,const unsigned int interval,const unsigned char align){
-    int res=1;
-    for(;*s;++s)
-        if(*s=='\n')
-            ++res;
-    res*=ofs; res-=interval;
+static int _sgf_dy(const char *s,const unsigned int ofs,const unsigned int interval,const unsigned char align){
     switch(align&(SGF_YB|SGF_YC|SGF_YT)){
-        case SGF_YT: return -res-1;
-        case SGF_YC: return res>>1;
-        default: return res-1;
+        case SGF_YT: return 0;
+        case SGF_YC:{
+            int res=1;
+            while( (s=strchr(s,'\n')) ){++s; ++res;}
+            return (res*ofs-interval)>>1;
+        }
+        default:{
+            int res=1;
+            while( (s=strchr(s,'\n')) ){++s; ++res;}
+            return (res*ofs-interval);
+        }
     }
 }
 
-static int _sga_x(const char *s,const unsigned int ofs,const unsigned int interval,const unsigned char align){
-    int res=0;
-    for(;*s && *s!='\n';++s)
-        ++res;
-    res*=ofs; res-=interval;
+static int _sgf_dx(const char * const s,const unsigned int ofs,const unsigned int interval,const unsigned char align){
     switch(align&(SGF_XL|SGF_XR|SGF_XC)){
         case SGF_XL: return 0;
-        case SGF_XC: return res>>1;
-        default: return res;
+        case SGF_XC: return (strcspn(s,"\n")*ofs-interval)>>1;
+        default: return (strcspn(s,"\n")*ofs-interval);
     }
 }
 
 void sgm_string(const SGM * const m,const int x,const int y,const void * const c,const SGF *f,const enum SGF_ALIGN a,const char *s){
-    if(!s || !*s) return;
+    if(!*s) return;
     if(!f) f=sgf_default;
 {   const struct _sgm_symb info[1]={{c,m->color_bytes}};
     const unsigned int char_begin=f->bm->cb, char_end=1+f->bm->ce;
@@ -483,8 +519,8 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
     const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
     const unsigned short w=((f->bm->bpw-1)>>3)+1, h=f->bm->bph*w;
 
-    int dy=y-_sga_y(s,oy,f->gap_h,a);
-    int dx=x-_sga_x(s,ox,f->gap_w,a);
+    int dy=y-_sgf_dy(s,oy,f->gap_h,a);
+    int dx=x-_sgf_dx(s,ox,f->gap_w,a);
     unsigned int i,j;
 
     SGM m_char[1], m_symb[1];
@@ -498,7 +534,7 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
         const unsigned char id=*(s++);
         if(id=='\n'){
             dy+=oy;
-            dx=x-_sga_x(s,ox,f->gap_w,a);
+            dx=x-_sgf_dx(s,ox,f->gap_w,a);
             continue;
         }
 
@@ -517,26 +553,23 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
 
 void sgf_string_rect(const SGF *f,const char *s,unsigned int * const w,unsigned int * const h){
     *w=*h=0;
-    if(!s) return;
     if(!f) f=sgf_default;
-{   const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
-    const char *p;
+{   const char *p;
     unsigned int dx=0,dy=0,l;
     while( (p=strchr(s,'\n')) ){
         ++dy; l=(size_t)(p-s); s=p+1;
         if(l>dx) dx=l;
     }
-    *w=dx*ox-f->gap_w;
-    *h=dy*oy-f->gap_h;
+    *w=dx*(f->w+f->gap_w)-f->gap_w;
+    *h=dy*(f->h+f->gap_h)-f->gap_h;
 }}
 
 const char *sgf_string_at(const SGF *f,const enum SGF_ALIGN a,const char *s,const int x,const int y){
-    if(!s) return NULL;
     if(!f) f=sgf_default;
 {   const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
     int i;
 
-    if( y<(i=-_sga_y(s,oy,f->gap_h,a)) )
+    if( y<(i=-_sgf_dy(s,oy,f->gap_h,a)) )
         return (const char*)1;
     while( y>=(i+=oy) ){
         const char * const p=strchr(s,'\n');
@@ -544,10 +577,10 @@ const char *sgf_string_at(const SGF *f,const enum SGF_ALIGN a,const char *s,cons
         s=p+1;
     }
 
-    if( x<(i=-_sga_x(s,ox,f->gap_w,a)) )
-        return (const char*)1;
+    if( x<(i=-_sgf_dx(s,ox,f->gap_w,a)) )
+        return s;
     while( *s && x>=(i+=ox) ){
-        if(*s=='\n') return (const char*)2;
+        if(*s=='\n') break;
         ++s;
     }
     return s;
@@ -595,6 +628,12 @@ void *sgp_pixel(const SGP * const p,const int pixel_x,const int pixel_y,double *
 void sgp_point(const SGP * const p,double x,double y,const unsigned int r,const void * const c){
     _sgp_convert(p,&x,&y);
     sgm_round(&p->m,x,y,r,c);
+}
+
+void sgp_line(const SGP *p,double x1,double y1,double x2,double y2,const unsigned int rp,const void *c){
+    _sgp_convert(p,&x1,&y1);
+    _sgp_convert(p,&x2,&y2);
+    sgm_line(&p->m,x1,y1,x2,y2,rp,c);
 }
 
 #undef SG_SET
