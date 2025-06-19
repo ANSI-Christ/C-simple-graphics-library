@@ -10,6 +10,11 @@ SGC *sgw_pixel(SGW * const w,const unsigned int x,const unsigned int y){
     return w->pixel+y*w->rectangle.w+x;
 }
 
+void sgw_fill(SGW * const w,const SGC c){
+    unsigned int i=w->rectangle.w*w->rectangle.h;
+    while(i) w->pixel[--i]=c;
+}
+
 static void _sgc_convert(const SGC *c32,const unsigned int size,const unsigned char bits,void * const out){
     switch(bits){
         case 32: case 24:

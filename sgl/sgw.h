@@ -67,6 +67,8 @@ void sgw_close(SGW *w);
 
 void sgw_render(SGW *w);
 
+void sgw_fill(SGW *w,SGC c);
+
 void sgw_async(SGW *w,const void *p);
 
 void sgw_title(SGW *w,const char *title);

@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <errno.h>
 #include <math.h>
 
 #include "sgp.h"
@@ -399,13 +400,13 @@ void sgm_fill(const SGM * const m,const int x,const int y,const void * const c,c
     if(sgm_at(m,x,y)) _sgm_fill_row(m,x,y,1,x,x,c,border);
 }
 
-void sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
+int sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
     unsigned int w=p->w,h=p->h;
     const void *from;
     void *to;
     if(!converter){
         if(m->color_bytes!=p->color_bytes)
-            return;
+            return ENOTSUP;
         *(void**)&converter=_sgm_converter;
         arg=(const void*)(size_t)m->color_bytes;
     }
@@ -413,9 +414,10 @@ void sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,c
         while(w--)
             if( (to=sgm_at(m,x+w,y+h)) && (from=sgm_at(p,w,h)) )
                 converter(from,to,arg);
+    return 0;
 }
 
-void sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
+int sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
     const float rx=(float)m->w/c->w;
     const float ry=(float)m->h/c->h;
     const void *from, *last_from=NULL;
@@ -424,7 +426,7 @@ void sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const
     char cmp=0;
     if(!converter){
         if(m->color_bytes!=c->color_bytes)
-            return;
+            return ENOTSUP;
         *(void**)&converter=_sgm_converter;
         arg=(const void*)(size_t)m->color_bytes;
     }
@@ -437,6 +439,7 @@ void sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const
                 }
                 if(cmp) memcpy(to,last_to,c->color_bytes);
             }
+    return 0;
 }
 
 void sgm_bmp(const SGM * const m,const char * const name){
@@ -517,7 +520,7 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
     const unsigned int char_begin=f->bm->cb, char_end=1+f->bm->ce;
     const unsigned int mask=1<<(f->bm->bpw-1);
     const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
-    const unsigned short w=((f->bm->bpw-1)>>3)+1, h=f->bm->bph*w;
+    const unsigned int bits=f->bm->bpw-1, w=(bits>>3)+1, h=f->bm->bph*w;
 
     int dy=y-_sgf_dy(s,oy,f->gap_h,a);
     int dx=x-_sgf_dx(s,ox,f->gap_w,a);
@@ -542,7 +545,7 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
             const char *bm=f->bm->bits+(id-char_begin)*h;
             for(i=0,p=m_char->data;i<m_char->h;++i,bm+=w)
                 for(j=0;j<m_char->w;++j,++p)
-                    *p=*(bm+((f->bm->bpw-1-j)>>3)) & (mask>>j);
+                    *p=*(bm+((bits-j)>>3)) & (mask>>j);
             sgm_sub(m,dx,dy,f->w,f->h,0,m_symb);
             sgm_convert(m_char,m_symb,(char(*)(const void*,void*,const void*))converter,info);
         }
@@ -616,6 +619,16 @@ static void _sgp_convert(const SGP * const p,double * const x, double * const y)
     *y=_sgp_interpolation(0,p->y1,p->m.h,p->y2,*y);
 }
 
+void *sgp_at(const SGP * const p,double x,double y){
+    _sgp_convert(p,&x,&y);
+    return sgm_at(&p->m,x,y);
+}
+
+void sgp_set(const SGP * const p,const double x,const double y,const void * const c){
+    void *d=sgp_at(p,x,y);
+    if(d) memcpy(d,c,p->m.color_bytes);
+}
+
 void *sgp_pixel(const SGP * const p,const int pixel_x,const int pixel_y,double * const x,double * const y){
     void * const c=sgm_at(&p->m,pixel_x,pixel_y);
     if(c){
@@ -623,6 +636,11 @@ void *sgp_pixel(const SGP * const p,const int pixel_x,const int pixel_y,double *
         if(y) *y=_sgp_interpolation(p->y1,0,p->y2,p->m.h,pixel_y);
         return c;
     } return NULL;
+}
+
+void sgp_string(const SGP * const p,double x,double y,const void * const c,const SGF *const f,const enum SGF_ALIGN a,const char * const s){
+    _sgp_convert(p,&x,&y);
+    sgm_string(&p->m,x,y,c,f,a,s);
 }
 
 void sgp_point(const SGP * const p,double x,double y,const unsigned int r,const void * const c){
@@ -635,5 +653,41 @@ void sgp_line(const SGP *p,double x1,double y1,double x2,double y2,const unsigne
     _sgp_convert(p,&x2,&y2);
     sgm_line(&p->m,x1,y1,x2,y2,rp,c);
 }
+
+void sgp_round(const SGP *const p,double x,double y,const double r,const void * const c){
+    _sgp_convert(p,&x,&y);
+    sgm_oval(&p->m,x,y,r*p->_.dx,r*p->_.dy,c);
+}
+
+void sgp_circle(const SGP * const p,double x,double y,const double r,const unsigned int rp,const void * const c){
+    _sgp_convert(p,&x,&y);
+    sgm_ellipse(&p->m,x,y,r*p->_.dx,r*p->_.dy,rp,c);
+}
+
+void sgp_oval(const SGP * const p,double x,double y,const double rx,const double ry,const void * const c){
+    _sgp_convert(p,&x,&y);
+    sgm_oval(&p->m,x,y,rx*p->_.dx,ry*p->_.dy,c);
+}
+
+void sgp_ellipse(const SGP * const p,double x,double y,const double rx,const double ry,const unsigned int rp,const void * const c){
+    _sgp_convert(p,&x,&y);
+    sgm_ellipse(&p->m,x,y,rx*p->_.dx,ry*p->_.dy,rp,c);
+}
+
+void sgp_arc_cirlce(const SGP * const p,double x,double y,const double r,const unsigned int rp,const double ang,const double rot,const void * const c){
+    _sgp_convert(p,&x,&y);
+    sgm_arc_ellipse(&p->m,x,y,r*p->_.dx,r*p->_.dy,rp,ang,rot,c);
+}
+
+void sgp_arc_ellipse(const SGP * const p,double x,double y,const double rx,const double ry,const unsigned int rp,const double ang,const double rot,const void * const c){
+    _sgp_convert(p,&x,&y);
+    sgm_arc_ellipse(&p->m,x,y,rx*p->_.dx,ry*p->_.dy,rp,ang,rot,c);
+}
+
+/*
+void sgp_plot(const SGP * const p,SGA x,SGA y,const SGF * const f,const void * const c1, const void * const c2,SGP * const plot){
+    if(!x.format) x.format="%0.f";
+}
+*/
 
 #undef SG_SET
