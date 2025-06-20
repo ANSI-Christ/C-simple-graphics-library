@@ -112,9 +112,9 @@ void sgm_column(const SGM * const m,const int x,int y,const unsigned int l,const
 }
 
 void sgm_line(const SGM * const m,int x1,int y1,const int x2,const int y2,const unsigned int rp,const void * const c){
-    const int dx=abs(y2-y1), dy=abs(x2-x1), sx=y1 < y2 ? 1 : -1, sy=x1 < x2 ? 1 : -1;
+    const int dx=abs(y2-y1), dy=abs(x2-x1), sx=(y1<y2?1:-1), sy=(x1<x2?1:-1);
     int e=dx-dy;
-    sgm_set(m,x2,y2,c);
+    sgm_round(m,x2,y2,rp,c);
     while(y1!=y2 || x1!=x2){
         const int e2=e<<1;
         sgm_round(m,x1,y1,rp,c);
@@ -147,16 +147,16 @@ void sgm_square(const SGM * const m,const int x,const int y,const unsigned int w
 
 void sgm_round(const SGM * const m,const int x,const int y,unsigned int r,const void * const c){
     if(r>1){
-        int t,dx=0,dy=--r,delta=3-(r<<1);
-        while(dx<dy) {
+        int t,dx=0,dy=--r,d=3-(r<<1);
+        while(dx<dy){
             t=x-dx; r=dx<<1;
             sgm_row(m,t,y-dy,r,c);
             sgm_row(m,t,y+dy,r,c);
             t=x-dy; r=dy<<1;
             sgm_row(m,t,y-dx,r,c);
             sgm_row(m,t,y+dx,r,c);
-            if (delta<0) delta+=(dx<<2)+6;
-            else delta+=((dx-(dy--))<<2)+10;
+            if(d<0) d+=(dx<<2)+6;
+            else d+=((dx-(dy--))<<2)+10;
             ++dx;
         }
         if(dx==dy){
@@ -171,8 +171,8 @@ void sgm_round(const SGM * const m,const int x,const int y,unsigned int r,const 
 
 void sgm_circle(const SGM * const m,const int x,const int y,unsigned int r,const unsigned int rp,const void * const c){
     if(r>1){
-        int dx=0,dy=--r,delta=3-(r<<1);
-        while(dx<dy) {
+        int dx=0,dy=--r,d=3-(r<<1);
+        while(dx<dy){
             const int x1=x-dx, x2=x+dx, x3=x-dy, x4=x+dy;
             const int y1=y-dy, y2=y+dy, y3=y-dx, y4=y+dx;
             sgm_round(m,x1,y1,rp,c);
@@ -183,8 +183,8 @@ void sgm_circle(const SGM * const m,const int x,const int y,unsigned int r,const
             sgm_round(m,x4,y4,rp,c);
             sgm_round(m,x1,y2,rp,c);
             sgm_round(m,x2,y2,rp,c);
-            if (delta<0) delta+=(dx<<2)+6;
-            else delta+=((dx-(dy--))<<2)+10;
+            if(d<0) d+=(dx<<2)+6;
+            else d+=((dx-(dy--))<<2)+10;
             ++dx;
         }
         if(dx==dy){
@@ -212,8 +212,8 @@ void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int 
         sgm_round(m,x2,y1,rp,c);
         sgm_round(m,x1,y2,rp,c);
         sgm_round(m,x2,y2,rp,c);
-        if (d>=0) d-=a4*(--dx);
-        d+=b2*(3+(dy<<1)); ++dy;
+        if(d>=0) d-=a4*(--dx);
+        d+=b2*(3+(dy<<1));++dy;
     }
     d=b2*(dy+1)*dy+a2*(dx*(dx-2)+1)+(1-a2)*w2;
     while(dx>=0){
@@ -237,7 +237,7 @@ void sgm_oval(const SGM * const m,const int x,const int y,const unsigned int _rw
         const unsigned int s=x-dx, l=dx<<1;
         sgm_row(m,s,y-dy,l,c);
         sgm_row(m,s,y+dy,l,c);
-        if (d>=0) d-=a4*(--dx);
+        if(d>=0) d-=a4*(--dx);
         d+=b2*(3+(dy<<1)); ++dy;
     }
     d=b2*(dy+1)*dy+a2*(dx*(dx-2)+1)+(1-a2)*w2;
@@ -307,7 +307,7 @@ void sgm_arc_circle(const SGM * const m,const int x,const int y,const unsigned i
     if(r>1){
         int dx=0,dy=r-1,delta=3-(dy<<1), b[5][4];
         _sgm_border(b,x,y,r,r,ang,rot);
-        while(dx<dy) {
+        while(dx<dy){
             const int x1=x-dx, x2=x+dx, x3=x-dy, x4=x+dy;
             const int y1=y-dy, y2=y+dy, y3=y-dx, y4=y+dx;
             _SGDRAW(1,x1,y1);
