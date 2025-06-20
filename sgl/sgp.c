@@ -614,14 +614,8 @@ static double _sgp_interpolation(const double x1,const double y1,const double x2
     return x1+(y3-y1)*((x2-x1)/(y2));
 }
 
-static void _sgp_convert(const SGP * const p,double * const x, double * const y){
-    *x=_sgp_interpolation(0,p->x1,p->m.w,p->x2,*x);
-    *y=_sgp_interpolation(0,p->y1,p->m.h,p->y2,*y);
-}
-
-void *sgp_at(const SGP * const p,double x,double y){
-    _sgp_convert(p,&x,&y);
-    return sgm_at(&p->m,x,y);
+void *sgp_at(const SGP * const p,const double x,const double y){
+    return sgm_at(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy);
 }
 
 void sgp_set(const SGP * const p,const double x,const double y,const void * const c){
@@ -638,50 +632,40 @@ void *sgp_pixel(const SGP * const p,const int pixel_x,const int pixel_y,double *
     } return NULL;
 }
 
-void sgp_string(const SGP * const p,double x,double y,const void * const c,const SGF *const f,const enum SGF_ALIGN a,const char * const s){
-    _sgp_convert(p,&x,&y);
-    sgm_string(&p->m,x,y,c,f,a,s);
+void sgp_string(const SGP * const p,const double x,const double y,const void * const c,const SGF *const f,const enum SGF_ALIGN a,const char * const s){
+    sgm_string(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,c,f,a,s);
 }
 
-void sgp_point(const SGP * const p,double x,double y,const unsigned int r,const void * const c){
-    _sgp_convert(p,&x,&y);
-    sgm_round(&p->m,x,y,r,c);
+void sgp_point(const SGP * const p,const double x,const double y,const unsigned int r,const void * const c){
+    sgm_round(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r,c);
 }
 
-void sgp_line(const SGP *p,double x1,double y1,double x2,double y2,const unsigned int rp,const void *c){
-    _sgp_convert(p,&x1,&y1);
-    _sgp_convert(p,&x2,&y2);
-    sgm_line(&p->m,x1,y1,x2,y2,rp,c);
+void sgp_line(const SGP *p,const double x1,const double y1,const double x2,const double y2,const unsigned int rp,const void *c){
+    sgm_line(&p->m,(x1-p->x1)*p->_.dx,(y1-p->y1)*p->_.dy,(x2-p->x1)*p->_.dx,(y2-p->y1)*p->_.dy,rp,c);
 }
 
-void sgp_round(const SGP *const p,double x,double y,const double r,const void * const c){
-    _sgp_convert(p,&x,&y);
-    sgm_oval(&p->m,x,y,r*p->_.dx,r*p->_.dy,c);
+void sgp_round(const SGP *const p,const double x,const double y,const double r,const void * const c){
+    sgm_oval(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r*p->_.dx,r*p->_.dy,c);
 }
 
-void sgp_circle(const SGP * const p,double x,double y,const double r,const unsigned int rp,const void * const c){
-    _sgp_convert(p,&x,&y);
-    sgm_ellipse(&p->m,x,y,r*p->_.dx,r*p->_.dy,rp,c);
+void sgp_circle(const SGP * const p,const double x,const double y,const double r,const unsigned int rp,const void * const c){
+    sgm_ellipse(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r*p->_.dx,r*p->_.dy,rp,c);
 }
 
-void sgp_oval(const SGP * const p,double x,double y,const double rx,const double ry,const void * const c){
-    _sgp_convert(p,&x,&y);
-    sgm_oval(&p->m,x,y,rx*p->_.dx,ry*p->_.dy,c);
+void sgp_oval(const SGP * const p,const double x,const double y,const double rx,const double ry,const void * const c){
+    sgm_oval(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,rx*p->_.dx,ry*p->_.dy,c);
 }
 
-void sgp_ellipse(const SGP * const p,double x,double y,const double rx,const double ry,const unsigned int rp,const void * const c){
-    _sgp_convert(p,&x,&y);
-    sgm_ellipse(&p->m,x,y,rx*p->_.dx,ry*p->_.dy,rp,c);
+void sgp_ellipse(const SGP * const p,const double x,const double y,const double rx,const double ry,const unsigned int rp,const void * const c){
+    sgm_ellipse(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,rx*p->_.dx,ry*p->_.dy,rp,c);
 }
 
-void sgp_arc_cirlce(const SGP * const p,double x,double y,const double r,const unsigned int rp,const double ang,const double rot,const void * const c){
-    _sgp_convert(p,&x,&y);
-    sgm_arc_ellipse(&p->m,x,y,r*p->_.dx,r*p->_.dy,rp,ang,rot,c);
+void sgp_arc_cirlce(const SGP * const p,const double x,const double y,const double r,const unsigned int rp,const double ang,const double rot,const void * const c){
+    sgm_arc_ellipse(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r*p->_.dx,r*p->_.dy,rp,ang,rot,c);
 }
 
-void sgp_arc_ellipse(const SGP * const p,double x,double y,const double rx,const double ry,const unsigned int rp,const double ang,const double rot,const void * const c){
-    _sgp_convert(p,&x,&y);
-    sgm_arc_ellipse(&p->m,x,y,rx*p->_.dx,ry*p->_.dy,rp,ang,rot,c);
+void sgp_arc_ellipse(const SGP * const p,const double x,const double y,const double rx,const double ry,const unsigned int rp,const double ang,const double rot,const void * const c){
+    sgm_arc_ellipse(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,rx*p->_.dx,ry*p->_.dy,rp,ang,rot,c);
 }
 
 /*
