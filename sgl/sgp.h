@@ -61,19 +61,19 @@ void sgm_row(const SGM *m,int x,int y,unsigned int l,const void *c);
 void sgm_column(const SGM *m,int x,int y,unsigned int l,const void *c);
 
 void sgm_fill(const SGM *m,int x,int y,const void *c,const void *border);
-void sgm_line(const SGM *m,int x1,int y1,int x2,int y2,unsigned int rp,const void *c);
+void sgm_line(const SGM *m,int x1,int y1,int x2,int y2,unsigned int t,const void *c);
 
-void sgm_rect(const SGM *m,int x,int y,unsigned int w,unsigned int h,const void *c);
+void sgm_rect(const SGM *m,int x,int y,unsigned int w,unsigned int h,unsigned int t,const void *c);
 void sgm_square(const SGM *m,int x,int y,unsigned int w,unsigned int h,const void *c);
 
 void sgm_round(const SGM *m,int x,int y,unsigned int r,const void *c);
-void sgm_circle(const SGM *m,int x,int y,unsigned int r,unsigned int rp,const void *c);
+void sgm_circle(const SGM *m,int x,int y,unsigned int r,unsigned int t,const void *c);
 
 void sgm_oval(const SGM *m,int x,int y,unsigned int rx,unsigned int ry,const void *c);
-void sgm_ellipse(const SGM *m,int x,int y,unsigned int rx,unsigned int ry,unsigned int rp,const void *c);
+void sgm_ellipse(const SGM *m,int x,int y,unsigned int rx,unsigned int ry,unsigned int t,const void *c);
 
-void sgm_arc_cirlce(const SGM *m,int x,int y,unsigned int r,unsigned int rp,double ang,double rot,const void *c);
-void sgm_arc_ellipse(const SGM *m,int x,int y,unsigned int rx,unsigned int ry,unsigned int rp,double ang,double rot,const void *c);
+void sgm_arc_cirlce(const SGM *m,int x,int y,unsigned int r,unsigned int t,double ang,double rot,const void *c);
+void sgm_arc_ellipse(const SGM *m,int x,int y,unsigned int rx,unsigned int ry,unsigned int t,double ang,double rot,const void *c);
 
 void sgm_bmp(const SGM *m,const char *name);
 void sgm_string(const SGM * const m,int x,int y,const void *c,const SGF *f,enum SGF_ALIGN a,const char *s);
@@ -103,16 +103,16 @@ void *sgp_at(const SGP *p,double x,double y);
 void *sgp_pixel(const SGP *p,int pixel_x,int pixel_y,double *x,double *y);
 
 void sgp_point(const SGP *p,double x,double y,unsigned int r,const void *c);
-void sgp_line(const SGP *p,double x1,double y1,double x2,double y2,unsigned int rp,const void *c);
+void sgp_line(const SGP *p,double x1,double y1,double x2,double y2,unsigned int t,const void *c);
 
 void sgp_round(const SGP *p,double x,double y,double r,const void *c);
-void sgp_circle(const SGP *p,double x,double y,double r,unsigned int rp,const void *c);
+void sgp_circle(const SGP *p,double x,double y,double r,unsigned int t,const void *c);
 
 void sgp_oval(const SGP *p,double x,double y,double rx,double ry,const void *c);
-void sgp_ellipse(const SGP *p,double x,double y,double rx,double ry,unsigned int rp,const void *c);
+void sgp_ellipse(const SGP *p,double x,double y,double rx,double ry,unsigned int t,const void *c);
 
-void sgp_arc_cirlce(const SGP *p,double x,double y,double r,unsigned int rp,double ang,double rot,const void *c);
-void sgp_arc_ellipse(const SGP *p,double x,double y,double rx,double ry,unsigned int rp,double ang,double rot,const void *c);
+void sgp_arc_cirlce(const SGP *p,double x,double y,double r,unsigned int t,double ang,double rot,const void *c);
+void sgp_arc_ellipse(const SGP *p,double x,double y,double rx,double ry,unsigned int t,double ang,double rot,const void *c);
 
 void sgp_string(const SGP *p,double x,double y,const void *c,const SGF *f,enum SGF_ALIGN a,const char *s);
 
