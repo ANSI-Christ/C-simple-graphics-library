@@ -207,28 +207,22 @@ void sgm_circle(const SGM * const m,const int x,const int y,const unsigned int r
                 for(;dx<dy;++dx){
                     const int x1=x-dx, x2=x+dx, x3=x-dy, x4=x+dy;
                     const int y1=y-dy, y2=y+dy, y3=y-dx, y4=y+dx;
-                    sgm_set(m,x1,y1,c);
-                    sgm_set(m,x2,y1,c);
-                    sgm_set(m,x3,y3,c);
-                    sgm_set(m,x4,y3,c);
-                    sgm_set(m,x3,y4,c);
-                    sgm_set(m,x4,y4,c);
-                    sgm_set(m,x1,y2,c);
-                    sgm_set(m,x2,y2,c);
+                    sgm_set(m,x1,y1,c); sgm_set(m,x2,y1,c);
+                    sgm_set(m,x3,y3,c); sgm_set(m,x4,y3,c);
+                    sgm_set(m,x3,y4,c); sgm_set(m,x4,y4,c);
+                    sgm_set(m,x1,y2,c); sgm_set(m,x2,y2,c);
                     d += (d<0) ? ((dx<<2)+6) : (((dx-dy--)<<2)+10);
                 }{
                     const int x1=x-dx, x2=x+dx;
                     const int y1=y-dy, y2=y+dy;
-                    sgm_set(m,x1,y1,c);
-                    sgm_set(m,x2,y1,c);
-                    sgm_set(m,x1,y2,c);
-                    sgm_set(m,x2,y2,c);
+                    sgm_set(m,x1,y1,c); sgm_set(m,x2,y1,c);
+                    sgm_set(m,x1,y2,c); sgm_set(m,x2,y2,c);
                 }
             }else{
                 const int tr=r-t+1;
                 int tdy=tr, td=3-(tr<<1);
                 for(;dx<dy;++dx){
-                    const int l=dy-tdy+1;  // x <-> y !!!
+                    const int l=dy-tdy+1;  /* x <-> y !!! */
                     const int x1=x-dy, x2=x+tdy, x3=x-dx, x4=x+dx;
                     const int y1=y-dx, y2=y+dx, y3=y-dy, y4=y+tdy;
                     sgm_column(m,x3,y3,l,c); sgm_column(m,x4,y3,l,c);
@@ -264,10 +258,8 @@ void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int 
             while(h2*dx>w2*dy){
                 const int x1=x-dx, x2=x+dx;
                 const int y1=y-dy, y2=y+dy;
-                sgm_set(m,x1,y1,c);
-                sgm_set(m,x2,y1,c);
-                sgm_set(m,x1,y2,c);
-                sgm_set(m,x2,y2,c);
+                sgm_set(m,x1,y1,c); sgm_set(m,x2,y1,c);
+                sgm_set(m,x1,y2,c); sgm_set(m,x2,y2,c);
                 if(d>=0) d-=a4*(--dx);
                 d+=b2*(3+(dy<<1)); ++dy;
             }
@@ -275,15 +267,46 @@ void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int 
             while(dx>=0){
                 const int x1=x-dx, x2=x+dx;
                 const int y1=y-dy, y2=y+dy;
-                sgm_set(m,x1,y1,c);
-                sgm_set(m,x2,y1,c);
-                sgm_set(m,x1,y2,c);
-                sgm_set(m,x2,y2,c);
+                sgm_set(m,x1,y1,c); sgm_set(m,x2,y1,c);
+                sgm_set(m,x1,y2,c); sgm_set(m,x2,y2,c);
                 if(d<=0){d+=b4*dy; ++dy;}
                 d+=a2*(3-((--dx)<<1));
             }
         }else{
-            // FIX ME thickness
+            const int trw=rw-t+1, trh=rh-t+1;
+            const long tw2=(long)trw*trw, th2=(long)trh*trh, ta2=th2<<1, ta4=th2<<2, tb2=tw2<<1, tb4=tw2<<2;
+            long td=ta2*(trw-1)*trw+th2+tb2*(1-th2);
+            int tdx=trw;
+            while(h2*dx>w2*dy){
+                const int l=dx-tdx+1;
+                const int x1=x-dx, x2=x+tdx;
+                const int y1=y-dy, y2=y+dy;
+                sgm_row(m,x1,y1,l,c); sgm_row(m,x2,y1,l,c);
+                sgm_row(m,x1,y2,l,c); sgm_row(m,x2,y2,l,c);
+                if(d>=0) d-=a4*(--dx);
+                d+=b2*(3+(dy<<1)); ++dy;
+                if(dy>trh) tdx=dx;
+                else{
+                    if(td>=0) td-=ta4*(--tdx);
+                    td+=tb2*(3+(dy<<1));
+                }
+            }
+            d=b2*(dy+1)*dy+a2*(dx*(dx-2)+1)+(1-a2)*w2;
+            td=tb2*(dy+1)*dy+ta2*(tdx*(tdx-2)+1)+(1-ta2)*tw2;
+            while(dx>=0){
+                const int l=dx-tdx+1;
+                const int x1=x-dx, x2=x+tdx;
+                const int y1=y-dy, y2=y+dy;
+                sgm_row(m,x1,y1,l,c); sgm_row(m,x2,y1,l,c);
+                sgm_row(m,x1,y2,l,c); sgm_row(m,x2,y2,l,c);
+                if(d<=0){d+=b4*dy; ++dy;}
+                d+=a2*(3-((--dx)<<1));
+                if(dy>trh) tdx=0;
+                else{
+                    if(td<=0) td+=tb4*dy;
+                    td+=ta2*(3-((--tdx)<<1));
+                }
+            }
         }
     }else sgm_oval(m,x,y,rw,rh,c);
 }
@@ -427,14 +450,8 @@ static void _sgm_fill_row(const SGM * const m,int x,const int y,const int dir,co
 }
 
 void sgm_fill(const SGM * const m,const int x,const int y,const void * const c,const void * const border){
-    if(!border){
-        unsigned int i,j;
-        for(i=0;i<m->h;++i)
-            for(j=0;j<m->w;++j)
-                sgm_set(m,j,i,c);
-        return;
-    }
-    if(sgm_at(m,x,y)) _sgm_fill_row(m,x,y,1,x,x,c,border);
+    if(!border) sgm_square(m,0,0,m->w,m->h,c);
+    else if(sgm_at(m,x,y)) _sgm_fill_row(m,x,y,1,x,x,c,border);
 }
 
 int sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
@@ -554,10 +571,9 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
     if(!*s) return;
     if(!f) f=sgf_default;
 {   const struct _sgm_symb info[1]={{c,m->color_bytes}};
-    const unsigned int char_begin=f->bm->cb, char_end=1+f->bm->ce;
-    const unsigned int mask=1<<(f->bm->bpw-1);
+    const unsigned int char_begin=f->begin, char_end=1+f->end;
     const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
-    const unsigned int bits=f->bm->bpw-1, w=(bits>>3)+1, h=f->bm->bph*w;
+    const unsigned int w=((f->bpw-1)>>3)+1, h=f->bph*w;
 
     int dy=y-_sgf_dy(s,oy,f->gap_h,a);
     int dx=x-_sgf_dx(s,ox,f->gap_w,a);
@@ -565,10 +581,10 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
 
     SGM m_char[1], m_symb[1];
     void * const converter=_sgm_char2symb;
-    char _buffer[1024], *p=( (unsigned int)f->bm->bpw*f->bm->bph<sizeof(_buffer) ? _buffer : malloc((unsigned int)f->bm->bpw*f->bm->bph<sizeof(_buffer)));
+    char _buffer[1024], *p=( (unsigned int)f->bpw*f->bph<sizeof(_buffer) ? _buffer : malloc((unsigned int)f->bpw*f->bph<sizeof(_buffer)));
 
     if(!p) return;
-    sgm_cfg(m_char,p,f->bm->bpw,f->bm->bph,sizeof(char));
+    sgm_cfg(m_char,p,f->bpw,f->bph,sizeof(char));
 
     for(;*s;dx+=ox){
         const unsigned char id=*(s++);
@@ -579,10 +595,11 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
         }
 
         if(id>=char_begin && id<char_end){
-            const char *bm=f->bm->bits+(id-char_begin)*h;
+            const char *bm=f->bitmap+(id-char_begin)*h;
             for(i=0,p=m_char->data;i<m_char->h;++i,bm+=w)
-                for(j=0;j<m_char->w;++j,++p)
-                    *p=*(bm+((bits-j)>>3)) & (mask>>j);
+                for(j=m_char->w;j;++p){
+                    --j; *p=bm[(j>>3)] & 1<<(j&7);
+                }
             sgm_sub(m,dx,dy,f->w,f->h,0,m_symb);
             sgm_convert(m_char,m_symb,(char(*)(const void*,void*,const void*))converter,info);
         }

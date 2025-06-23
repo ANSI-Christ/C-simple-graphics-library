@@ -32,7 +32,7 @@ int main(int argc,char **argv){
                 if(w->keys&SGK_RB){
                     const int rect=5+rand()%20;
                     sgm_cfg(m,w->pixel,w->rectangle.w,w->rectangle.h,sizeof(SGC));
-                    sgm_rect(m,w->cursor.x-(rect>>1),w->cursor.y-(rect>>1),rect,rect,&c);
+                    sgm_rect(m,w->cursor.x-(rect>>1),w->cursor.y-(rect>>1),rect,rect,1,&c);
                 }
                 break;
             case SGE_PRESS:
