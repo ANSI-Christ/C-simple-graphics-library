@@ -313,7 +313,7 @@ void sgm_ellipse(const SGM * const m,const int x,const int y,const unsigned int 
 
 
 
-static char _sgm_border_check(const int * const b,const int x,const int y){
+static char _sgm_border_check(const int b[4],const int x,const int y){
     return (unsigned int)(x-b[0])<(unsigned int)b[1] && (unsigned int)(y-b[2])<(unsigned int)b[3];
 }
 
@@ -322,8 +322,8 @@ static void _sgm_border(int b[5][4],const int x,const int y,const unsigned int r
     const double ang_st=fmod(rot<0.? ang+360.+rot : ang,360.), ang_end=ang_st+fabs(rot);
     const int x1=x+rw*cos(ang_st*M_PI/180.), y1=y-rh*sin(ang_st*M_PI/180.), x2=x+rw*cos(ang_end*M_PI/180.), y2=y-rh*sin(ang_end*M_PI/180.);
     const unsigned char st=ang_st/90., end=ang_end/90.;
-    unsigned char i=end+1;
-    char cnt=3-(end-st);
+    unsigned char i;
+    char cnt;
     int *p;
 
     b[0][0]=b[3][0]=x;
@@ -346,11 +346,12 @@ static void _sgm_border(int b[5][4],const int x,const int y,const unsigned int r
     if(end-st==4){
         p=b[4];
         switch(st){
-            case 0: p[0]=x2;   p[2]=y2; p[1]=x+rw-x2;    p[3]=y-y2; break;
+            case 0: p[0]=x2;   p[2]=y2; p[1]=x+rw-x2;   p[3]=y-y2; break;
             case 1: p[0]=x-rw; p[2]=y2; p[1]=x2-(x-rw); p[3]=y-y2; break;
             case 2: p[0]=x-rw; p[2]=y;  p[1]=x2-(x-rw); p[3]=y2-y; break;
             case 3: p[0]=x2;   p[2]=y;  p[1]=x+rw-x2;   p[3]=y2-y; break;
         }
+        ++p[1],++p[3];
     }else{
         p=b[end&3];
         b[4][0]=b[4][1]=0;
@@ -361,8 +362,8 @@ static void _sgm_border(int b[5][4],const int x,const int y,const unsigned int r
             case 3: p[1]=x2-p[0];  p[3]+=p[2]-y2; p[2]=y2; break;
         }
     }
-
-    for(;cnt>0;--cnt,++i) b[i&3][1]=0;
+    for(i=0;i<4;++b[i][1],++b[i][3],++i);
+    for(i=end+1,cnt=3-(end-st);cnt>0;--cnt,++i) b[i&3][1]=0;
 }
 // FIX ME thickness
 void sgm_arc_circle(const SGM * const m,const int x,const int y,const unsigned int r,const unsigned int t,const double ang,const double rot,const void * const c){
