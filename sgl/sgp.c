@@ -132,20 +132,35 @@ void sgm_rect(const SGM * const m,const int x,int y,const unsigned int w,const u
 
 void sgm_line(const SGM * const m,int x1,int y1,const int x2,const int y2,const unsigned int t,const void * const c){
     if(t){
-        const int dx=abs(y2-y1), dy=-abs(x2-x1);
-        const signed char sx=(y1<y2?1:-1), sy=(x1<x2?1:-1);
+        const int dx=abs(x2-x1), dy=-abs(y2-y1);
+        const signed char sx=(x1<x2?1:-1), sy=(y1<y2?1:-1);
         int e=dx+dy;
         if(t==1){
             while(1){
                 sgm_set(m,x1,y1,c);
                 if(x1==x2 && y1==y2)
                     break;
-                {const int e2=e<<1;
-                if(e2>dy){e+=dy; y1+=sx;}
-                if(e2<dx){e+=dx; x1+=sy;}}
+                {
+                    const int e2=e<<1;
+                    if(e2>dy) e+=dy, x1+=sx;
+                    if(e2<dx) e+=dx, y1+=sy;
+                }
             }
         }else{
-            // FIX ME thickness
+            const int t2=-(t>>1), ix=dx<-dy, iy=!ix;
+            unsigned int j;
+            int i;
+            while(1){
+                for(i=t2,j=0;j<t;++j,++i)
+                    sgm_set(m,x1+i*ix,y1+i*iy,c);
+                if(x1==x2 && y1==y2)
+                    break;
+                {
+                    const int e2=e<<1;
+                    if(e2>dy) e+=dy, x1+=sx;
+                    if(e2<dx) e+=dx, y1+=sy;
+                }
+            }
         }
     }
 }
