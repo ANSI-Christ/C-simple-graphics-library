@@ -10,7 +10,7 @@
 #include <math.h>
 
 #include "sgp.h"
-#include "./sgf/sgf_5x12.c"
+#include "./sgf/sgf_5x11.c"
 
 #define SG_SET(_t_,_l_,_r_) do{ const union{const void *_;_t_ *t;}_1_={(const void*)&(_l_)}; *_1_.t=(_r_); }while(0)
 
@@ -19,9 +19,9 @@ static char _sgm_converter(const void * const from,void * const to,const void * 
 }
 
 void sgm_cfg(SGM * const m,void * const c,const unsigned int w,const unsigned int h,const unsigned int color_bytes){
-    m->flags=0;
+    m->flags=SGM_UNLIMITED;
     SG_SET(void*,m->data,c);
-    SG_SET(int,m->color_bytes,color_bytes);
+    SG_SET(int,m->color_bytes,(c?color_bytes:0));
     SG_SET(int,m->x,0);
     SG_SET(int,m->y,0);
     SG_SET(int,m->w,w);
@@ -34,7 +34,7 @@ void sgm_cfg(SGM * const m,void * const c,const unsigned int w,const unsigned in
     SG_SET(int,m->_.h[1],h);
 }
 
-void sgm_sub(const SGM * const m,int x,int y,const unsigned int w,const unsigned int h,const unsigned char flags,SGM * const s){
+void sgm_sub(const SGM * const m,int x,int y,const unsigned int w,const unsigned int h,const enum SGM flags,SGM * const s){
     int l,r,u,b;
     x+=m->x; y+=m->y;
     if(flags & SGM_UNLIMITED){
@@ -512,41 +512,6 @@ int sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const 
     return 0;
 }
 
-void sgm_bmp(const SGM * const m,const char * const name){
-    FILE * const f=fopen(name,"wb");
-    if(f){
-        const unsigned int palitra_count=(m->color_bytes==1)*256, palitra_size=palitra_count*sizeof(int), extra_color=0;
-        const unsigned char extra_bytes=(m->w*(4-m->color_bytes))&3;
-        const struct{
-            unsigned int a,b,c,d,e,f;
-            unsigned short g,h;
-            unsigned int i,j,k,l,m,n;
-        }header[1]={{
-            14+40 + palitra_size + m->color_bytes*m->w*m->h + m->h*extra_bytes, 0,
-            14+40 + palitra_size, 40, m->w, m->h, 1, m->color_bytes<<3, 0,0,0,0,
-            1<<(m->color_bytes<<3),0
-        }};
-        unsigned int i,j;
-
-        fwrite(((((const union{unsigned char _; int e;}){1}).e==1)?"BM":"MB"),2,1,f);
-        fwrite(header,sizeof(header),1,f);
-        for(i=0;i<palitra_count;++i){
-            const int c=(i&0x3)<<16 | (i&0x1c)<<8 | (i&0xe0);
-            fwrite(&c,sizeof(c),1,f);
-        }
-        for(i=m->h-1;i<m->h;--i){
-            for(j=0;j<m->w;++j){
-                const void * const c=sgm_at(m,j,i);
-                fwrite((c?c:&extra_color),m->color_bytes,1,f);
-            }
-            for(j=0;j<extra_bytes;++j)
-                fwrite(&extra_color,1,1,f);
-        }
-        fclose(f);
-    }
-}
-
-
 struct _sgm_symb{
     const void *data;
     unsigned int size;
@@ -624,7 +589,41 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
         free(m_char->data);
 }}
 
-void sgf_string_rect(const SGF *f,const char *s,unsigned int * const w,unsigned int * const h){
+void sgm_bmp(const SGM * const m,const char * const name){
+    FILE * const f=fopen(name,"wb");
+    if(f){
+        const unsigned int palitra_count=(m->color_bytes==1)*256, palitra_size=palitra_count*sizeof(int), extra_color=0;
+        const unsigned char extra_bytes=(m->w*(4-m->color_bytes))&3;
+        const struct{
+            unsigned int a,b,c,d,e,f;
+            unsigned short g,h;
+            unsigned int i,j,k,l,m,n;
+        }header[1]={{
+            14+40 + palitra_size + m->color_bytes*m->w*m->h + m->h*extra_bytes, 0,
+            14+40 + palitra_size, 40, m->w, m->h, 1, m->color_bytes<<3, 0,0,0,0,
+            1<<(m->color_bytes<<3),0
+        }};
+        unsigned int i,j;
+
+        fwrite(((((const union{unsigned char _; int e;}){1}).e==1)?"BM":"MB"),2,1,f);
+        fwrite(header,sizeof(header),1,f);
+        for(i=0;i<palitra_count;++i){
+            const int c=(i&0x3)<<16 | (i&0x1c)<<8 | (i&0xe0);
+            fwrite(&c,sizeof(c),1,f);
+        }
+        for(i=m->h-1;i<m->h;--i){
+            for(j=0;j<m->w;++j){
+                const void * const c=sgm_at(m,j,i);
+                fwrite((c?c:&extra_color),m->color_bytes,1,f);
+            }
+            for(j=0;j<extra_bytes;++j)
+                fwrite(&extra_color,1,1,f);
+        }
+        fclose(f);
+    }
+}
+
+void sgf_rect(const SGF *f,const char *s,unsigned int * const w,unsigned int * const h){
     *w=*h=0;
     if(!f) f=sgf_default;
 {   const char *p;
@@ -637,7 +636,7 @@ void sgf_string_rect(const SGF *f,const char *s,unsigned int * const w,unsigned 
     *h=dy*(f->h+f->gap_h)-f->gap_h;
 }}
 
-const char *sgf_string_at(const SGF *f,const enum SGF_ALIGN a,const char *s,const int x,const int y){
+const char *sgf_at(const SGF *f,const enum SGF_ALIGN a,const char *s,const int x,const int y){
     if(!f) f=sgf_default;
 {   const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
     int i;

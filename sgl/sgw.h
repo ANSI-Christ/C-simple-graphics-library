@@ -78,4 +78,4 @@ void sgw_rect(SGW *w,int x,int y,unsigned int width,unsigned int height);
 enum SGE sgw_event(SGW *w,int t,SGE *e);
 
 
-#endif /*  SG_WINDOW_H */
+#endif /* SG_WINDOW_H */

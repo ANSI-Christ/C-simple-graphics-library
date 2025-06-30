@@ -12,6 +12,7 @@ int main(int argc,char **argv){
         return -1;
     }
     sgw_rect(w,50,50,800,600);
+    sgm_cfg(m,w->pixel,w->rectangle.w,w->rectangle.h,sizeof(*w->pixel));
 
     while(1){
         SGE e[1];
@@ -24,24 +25,21 @@ int main(int argc,char **argv){
             case SGE_SCROLL:
                 c=rand();
                 continue;
+            case SGE_RECTANGLE:
+                sgm_cfg(m,w->pixel,w->rectangle.w,w->rectangle.h,sizeof(*w->pixel));
+                break;
             case SGE_CURSOR:
                 if(w->keys&SGK_LB){
-                    sgm_cfg(m,w->pixel,w->rectangle.w,w->rectangle.h,sizeof(SGC));
                     sgm_round(m,w->cursor.x,w->cursor.y,5+rand()%20,&c);
                 }
                 if(w->keys&SGK_RB){
                     const int rect=5+rand()%20;
-                    sgm_cfg(m,w->pixel,w->rectangle.w,w->rectangle.h,sizeof(SGC));
                     sgm_rect(m,w->cursor.x-(rect>>1),w->cursor.y-(rect>>1),rect,rect,1,&c);
                 }
                 break;
             case SGE_PRESS:
-                printf("press %d (%c)\n",w->keys,(char)e->key);
-                if(w->keys==SGK_ALT+'c'){
-                    unsigned int size=w->rectangle.w*w->rectangle.h;
-                    SGC * const p=w->pixel;
-                    while(size) p[--size]=SGC_BLACK;
-                }
+                if(w->keys==SGK_ALT+'c')
+                    sgw_fill(w,SGC_BLACK);
                 break;
         }
         sgw_render(w);

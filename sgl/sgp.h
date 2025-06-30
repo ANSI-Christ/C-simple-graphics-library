@@ -24,26 +24,29 @@ enum SGF_ALIGN{
     SGF_DEFAULT = SGF_XL | SGF_YT
 };
 
-extern const SGF sgf_5x12;
+extern const SGF sgf_5x11;
 extern const SGF *sgf_default;
 
-void sgf_string_rect(const SGF *f,const char *s,unsigned int *w,unsigned int *h);
-const char *sgf_string_at(const SGF *f,enum SGF_ALIGN a,const char *s,int x,int y);
+void sgf_rect(const SGF *f,const char *s,unsigned int *w,unsigned int *h);
+const char *sgf_at(const SGF *f,enum SGF_ALIGN a,const char *s,int x,int y);
 
 
 
+enum SGM{
+    SGM_UNLIMITED=1
+};
 
 typedef struct{
     char * const data;
     const int x, y;
     const unsigned int w, h;
     const unsigned int color_bytes;
-    enum{ SGM_UNLIMITED=1 } flags;
+    enum SGM flags;
     const struct{unsigned int x,y,w[2],h[2];}_;
 }SGM;
 
 void sgm_cfg(SGM *m,void *c,unsigned int w,unsigned int h,unsigned int color_bytes);
-void sgm_sub(const SGM *m,int x,int y,unsigned int w,unsigned int h,unsigned char flags,SGM *s);
+void sgm_sub(const SGM *m,int x,int y,unsigned int w,unsigned int h,enum SGM flags,SGM *s);
 
 void *sgm_at(const SGM *m,int x,int y);
 
