@@ -4,7 +4,7 @@
 
 
 int main(int argc,char **argv){
-    SGW *w=sgw_open();
+    SGW *w=sgw_open(NULL,NULL);
     SGM m[1];
     SGC c;
     if(!w){

@@ -97,20 +97,24 @@ void sgw_close(SGW * const _w){
             XCloseDisplay(w->display);
         }
         if(w->image){
-            free(w->w.pixel);
+            _w->deallocator(w->w.pixel);
             if(w->image->data!=(char*)w->w.pixel)
-                free(w->image->data);
+                _w->deallocator(w->image->data);
             w->image->data=NULL;
             XDestroyImage(w->image);
         }
-        free(w);
+        _w->deallocator(w);
     }
 }
 
-SGW *sgw_open(void){
-    SGW_UNCONST(w,malloc(sizeof(*w)));
+SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
+    if(!allocator) allocator=malloc;
+    if(!deallocator) deallocator=free;
+{   SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
         memset(w,0,sizeof(*w));
+        w->w.allocator=allocator;
+        w->w.deallocator=deallocator;
         w->ctrl[0]=w->ctrl[1]=-1;
         if(pipe(w->ctrl))
             break;
@@ -137,7 +141,7 @@ SGW *sgw_open(void){
     }
     sgw_close(&w->w);
     return NULL;
-}
+}}
 
 void sgw_title(SGW * const _w,const char *title){
     SGW_UNCONST(w,_w);
@@ -160,11 +164,11 @@ static void _sgw_resize(sgw_x11 * const w,const unsigned int width,const unsigne
     const unsigned int size=width*height;
     if(size>w->color_max){
         w->color_max=size;
-        free(w->w.pixel);
-        w->w.pixel=(SGC*)malloc(size*sizeof(*w->w.pixel));
-        if(w->color_bytes<3){
-            free(w->image->data);
-            w->image->data=(char*)malloc(size*w->color_bytes);
+        w->w.deallocator(w->w.pixel);
+        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
+        if(w->color_bytes<4){
+            w->w.deallocator(w->image->data);
+            w->image->data=(char*)w->w.allocator(size*w->color_bytes);
         }else w->image->data=(char*)w->w.pixel;
     }
     w->image->width=w->w.rectangle.w=width;

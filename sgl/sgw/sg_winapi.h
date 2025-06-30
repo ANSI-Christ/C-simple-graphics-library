@@ -3,10 +3,10 @@
 /* Copyright (c) 2024 ANSI-Christ  */
 /* * * * * * * * * * * * * * * * * */
 
+#include <unistd.h>
 #include <pthread.h>
 #include <windows.h>
 #include <windowsx.h>
-
 
 static SGK _sgk_keyboard(const MSG * const msg){
     switch(msg->wParam){
@@ -61,7 +61,7 @@ static SGK _sgk_keyboard(const MSG * const msg){
 }
 
 typedef struct{
-    struct _sgw;
+    struct _sgw w;
     void *local_buffer;
     unsigned int add_w,add_h;
     unsigned int color_max;
@@ -115,19 +115,23 @@ void sgw_close(SGW * const _w){
             ReleaseDC(w->window,w->dc);
             DestroyWindow(w->window);
         }
-        free(w->w.pixel);
+        _w->deallocator(w->w.pixel);
         if(w->local_buffer!=(void*)w->w.pixel)
-            free(w->local_buffer);
-        free(w);
+            _w->deallocator(w->local_buffer);
+        _w->deallocator(w);
     }
 }
 
-SGW *sgw_open(void){
-    SGW_UNCONST(w,malloc(sizeof(*w)));
+SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
+    if(!allocator) allocator=malloc;
+    if(!deallocator) deallocator=free;
+{   SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
         const int style=WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_BORDER | WS_MINIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME;
         RECT rw[1],rc[1];
         memset(w,0,sizeof(*w));
+        w->w.allocator=allocator;
+        w->w.deallocator=deallocator;
         pthread_once(&_sgw_once,_sgw_class_init);
         if( !(w->window=CreateWindow(SGW_CLASS_NAME,L" ",style,50,50,100,100,NULL,NULL,NULL,w)) )
             break;
@@ -142,15 +146,15 @@ SGW *sgw_open(void){
         w->add_w=(rw->right-rw->left)-(rc->right-rc->left);
         w->add_h=(rw->bottom-rw->top)-(rc->bottom-rc->top);
         UpdateWindow(w->window);
-        w->bmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        w->bmi->bmiHeader.biCompression = BI_RGB;
+        w->bmi->bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+        w->bmi->bmiHeader.biCompression=BI_RGB;
         w->bmi->bmiHeader.biPlanes=1;
         w->bmi->bmiHeader.biBitCount=w->w.bitness;
         return &w->w;
     }
     sgw_close(&w->w);
     return NULL;
-}
+}}
 
 void sgw_title(SGW * const _w,const char *title){
     SGW_UNCONST(w,_w);
@@ -174,11 +178,11 @@ static void _sgw_resize(sgw_win * const w,const unsigned int width,const unsigne
     const unsigned int size=width*height;
     if(size>w->color_max){
         w->color_max=size;
-        free(w->w.pixel);
-        w->w.pixel=(SGC*)malloc(size*sizeof(*w->w.pixel));
+        w->w.deallocator(w->w.pixel);
+        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
         if(w->color_bytes<4){
-            free(w->local_buffer);
-            w->local_buffer=malloc(size*w->color_bytes);
+            w->w.deallocator(w->local_buffer);
+            w->local_buffer=w->w.allocator(size*w->color_bytes);
         }else w->local_buffer=w->w.pixel;
     }
     w->bmi->bmiHeader.biWidth=w->w.rectangle.w=width;
@@ -191,7 +195,7 @@ void sgw_rect(SGW * const _w,const int x,const int y,const unsigned int width,co
     SetWindowPos(w->window,0,(w->w.rectangle.x=x),(w->w.rectangle.y=y),width+w->add_w,height+w->add_h,0);
 }
 
-static void _sgw_unrepeat(sgw_win * const w,MSG *e){
+static void _sge_unrepeat(sgw_win * const w,MSG *e){
     MSG next[1];
     while(PeekMessage(next,w->window,0,0,PM_NOREMOVE)){
         if(next->message!=e->message)
@@ -200,7 +204,8 @@ static void _sgw_unrepeat(sgw_win * const w,MSG *e){
     }
 }
 
-enum SGE sgw_event(SGW * const w,const int t,SGE * const e){
+enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
+    SGW_UNCONST(w,_w);
     MSG message[1];
     if(t<0){
         SetTimer(w->window,(UINT_PTR)1,USER_TIMER_MAXIMUM,0);

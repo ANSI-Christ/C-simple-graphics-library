@@ -6,6 +6,7 @@
 #ifndef SG_WINDOW_H
 #define SG_WINDOW_H
 
+#include <stddef.h>
 #include "sgc.h"
 #include "sgk.h"
 
@@ -43,6 +44,9 @@ typedef struct _sgw{
 
     SGC *pixel;
 
+    void*(*allocator)(size_t);
+    void(*deallocator)(void*);
+
     SGK keys;
 
     struct{
@@ -59,7 +63,7 @@ typedef struct _sgw{
 }const SGW;
 
 
-SGW *sgw_open(void);
+SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*));
 
 SGC *sgw_pixel(SGW *w,unsigned int x,unsigned int y);
 
