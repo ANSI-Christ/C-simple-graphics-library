@@ -12,10 +12,11 @@
 #include <sys/select.h>
 #include <sys/ioctl.h>
 #ifndef FIONREAD
-    #include <sys/filio.h>
-#endif
-#ifndef FIONREAD
-    #include <stropts.h>
+    #if defined(__FreeBSD) || defined(__APPLE__)
+        #include <sys/filio.h>
+    #elif defined(_AIX) || defined(__hpux) || defined(__sun)
+        #include <stropts.h>
+    #endif
 #endif
 
 static SGK _sgk_keyboard(void * const x11){
