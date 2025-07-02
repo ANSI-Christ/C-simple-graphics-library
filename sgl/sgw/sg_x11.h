@@ -82,6 +82,24 @@ typedef struct{
     }atom;
 }sgw_x11;
 
+static void _sgw_rect(sgw_x11 * const w){
+    Window root; unsigned int size,border,depth;
+    XGetGeometry(w->display,w->window,&root,&w->w.rectangle.x,&w->w.rectangle.y,&w->w.rectangle.w,&w->w.rectangle.h,&border,&depth);
+    size=(w->w.rectangle.w-=border>>1)*(w->w.rectangle.h-=border>>1);
+    if(size>w->color_max){
+        w->color_max=size;
+        w->w.deallocator(w->w.pixel);
+        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
+        if(w->color_bytes<4){
+            w->w.deallocator(w->image->data);
+            w->image->data=(char*)w->w.allocator(size*w->color_bytes);
+        }else w->image->data=(char*)w->w.pixel;
+    }
+    w->image->width=w->w.rectangle.w;
+    w->image->height=w->w.rectangle.h;
+    w->image->bytes_per_line=w->image->width*w->color_bytes;
+}
+
 #define SGW_UNCONST(_name_,_const_) sgw_x11 * const _name_ = (sgw_x11*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
 
 void sgw_close(SGW * const _w){
@@ -113,6 +131,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
 {   SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
         memset(w,0,sizeof(*w));
+        w->w.mode=SGW_XYWH;
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
         w->ctrl[0]=w->ctrl[1]=-1;
@@ -137,6 +156,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         XSelectInput(w->display,w->window,ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
         XMapWindow(w->display,w->window);
         XFlush(w->display);
+        _sgw_rect(w);
         return &w->w;
     }
     sgw_close(&w->w);
@@ -160,26 +180,44 @@ void sgw_render(SGW * const _w){
     XPutImage(w->display,w->window,w->gc,w->image,0,0,0,0,w->image->width,w->image->height);
 }
 
-static void _sgw_resize(sgw_x11 * const w,const unsigned int width,const unsigned int height){
-    const unsigned int size=width*height;
-    if(size>w->color_max){
-        w->color_max=size;
-        w->w.deallocator(w->w.pixel);
-        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
-        if(w->color_bytes<4){
-            w->w.deallocator(w->image->data);
-            w->image->data=(char*)w->w.allocator(size*w->color_bytes);
-        }else w->image->data=(char*)w->w.pixel;
-    }
-    w->image->width=w->w.rectangle.w=width;
-    w->image->height=w->w.rectangle.h=height;
-    w->image->bytes_per_line=width*w->color_bytes;
-}
-
-void sgw_rect(SGW * const _w,const int x,const int y,const unsigned int width,const unsigned int height){
+void sgw_rect(SGW * const _w,const enum SGW mode,...){
     SGW_UNCONST(w,_w);
-    _sgw_resize(w,width,height);
-    XMoveResizeWindow(w->display,w->window,(w->w.rectangle.x=x),(w->w.rectangle.y=y),width,height);
+    switch(mode){
+        case SGW_XY:{
+            va_list l; va_start(l,mode);{
+            const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
+            XMoveWindow(w->display,w->window,(w->w.rectangle.x=a[0]),(w->w.rectangle.y=a[1]));
+            w->w.mode=SGW_XYWH; return;
+        }}
+        case SGW_WH:{
+            va_list l; va_start(l,mode);{
+            const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
+            XResizeWindow(w->display,w->window,a[0],a[1]);
+            _sgw_rect(w);
+            w->w.mode=SGW_XYWH; return;
+        }}
+        case SGW_XYWH:{
+            va_list l; va_start(l,mode);{
+            const int a[]={va_arg(l,int),va_arg(l,int),va_arg(l,int),va_arg(l,int)}; va_end(l);
+            XMoveResizeWindow(w->display,w->window,a[0],a[1],a[2],a[3]);
+            _sgw_rect(w);
+            va_end(l); w->w.mode=SGW_XYWH; return;
+        }}
+        case SGW_TRAY:{
+            XIconifyWindow(w->display,w->window,w->screen);
+            w->w.mode=SGW_TRAY; return;
+        }
+        case SGW_MAX:{
+            XMoveResizeWindow(w->display,w->window,0,0,DisplayWidth(w->display,w->screen),DisplayHeight(w->display,w->screen));
+            _sgw_rect(w);
+            w->w.mode=SGW_XYWH; return;
+        }
+        case SGW_FULLSCREEN:{
+            return;
+            if(w->w.mode==SGW_FULLSCREEN) return;
+            w->w.mode=SGW_FULLSCREEN; return;
+        }
+    }
 }
 
 static void _sge_unrepeat(sgw_x11 * const w,XEvent *e){
@@ -223,9 +261,7 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                 return SGE_CURSOR;
             case ConfigureNotify:
                 _sge_unrepeat(w,message);
-                _sgw_resize(w,message->xconfigure.width,message->xconfigure.height);
-                w->w.rectangle.x=message->xconfigure.x;
-                w->w.rectangle.y=message->xconfigure.y;
+                _sgw_rect(w);
                 return SGE_RECTANGLE;
             case KeyPress:
                 return _sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key);

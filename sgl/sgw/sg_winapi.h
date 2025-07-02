@@ -63,7 +63,6 @@ static SGK _sgk_keyboard(const MSG * const msg){
 typedef struct{
     struct _sgw w;
     void *local_buffer;
-    unsigned int add_w,add_h;
     unsigned int color_max;
     unsigned char color_bytes;
     HWND window;
@@ -122,14 +121,32 @@ void sgw_close(SGW * const _w){
     }
 }
 
+static void _sgw_rect(sgw_win * const w){
+    RECT r; POINT p={0,0}; unsigned int size;
+    GetClientRect(w->window,&r); ClientToScreen(w->window,&p);
+    w->w.rectangle.x=p.x; w->w.rectangle.y=p.y;
+    size=(w->w.rectangle.w=r.right)*(w->w.rectangle.h=r.bottom);
+    if(size>w->color_max){
+        w->color_max=size;
+        w->w.deallocator(w->w.pixel);
+        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
+        if(w->color_bytes<4){
+            w->w.deallocator(w->local_buffer);
+            w->local_buffer=w->w.allocator(size*w->color_bytes);
+        }else w->local_buffer=w->w.pixel;
+    }
+    w->bmi->bmiHeader.biWidth=w->w.rectangle.w;
+    w->bmi->bmiHeader.biHeight=-w->w.rectangle.h;
+}
+
 SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
     if(!allocator) allocator=malloc;
-    if(!deallocator) deallocator=free;
-{   SGW_UNCONST(w,allocator(sizeof(*w)));
+    if(!deallocator) deallocator=free;{
+    SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
         const int style=WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_BORDER | WS_MINIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME;
-        RECT rw[1],rc[1];
         memset(w,0,sizeof(*w));
+        w->w.mode=SGW_XYWH;
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
         pthread_once(&_sgw_once,_sgw_class_init);
@@ -141,15 +158,12 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
             case 24: case 32: w->color_bytes=4; break;
             default: w->color_bytes=1; break;
         }
-        GetWindowRect(w->window,rw);
-        GetClientRect(w->window,rc);
-        w->add_w=(rw->right-rw->left)-(rc->right-rc->left);
-        w->add_h=(rw->bottom-rw->top)-(rc->bottom-rc->top);
         UpdateWindow(w->window);
         w->bmi->bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
         w->bmi->bmiHeader.biCompression=BI_RGB;
         w->bmi->bmiHeader.biPlanes=1;
         w->bmi->bmiHeader.biBitCount=w->w.bitness;
+        _sgw_rect(w);
         return &w->w;
     }
     sgw_close(&w->w);
@@ -168,31 +182,57 @@ void sgw_async(SGW * const _w,const void * const p){
 
 void sgw_render(SGW * const _w){
     SGW_UNCONST(w,_w);
-    const unsigned int width=w->bmi->bmiHeader.biWidth;
-    const unsigned int height=-w->bmi->bmiHeader.biHeight;
+    const unsigned int width=_w->rectangle.w;
+    const unsigned int height=_w->rectangle.h;
     _sgc_convert(w->w.pixel,width*height,w->w.bitness,w->local_buffer);
     SetDIBitsToDevice(w->dc, 0,0, width,height, 0,0, 0,height, w->local_buffer, w->bmi, DIB_RGB_COLORS);
 }
 
-static void _sgw_resize(sgw_win * const w,const unsigned int width,const unsigned int height){
-    const unsigned int size=width*height;
-    if(size>w->color_max){
-        w->color_max=size;
-        w->w.deallocator(w->w.pixel);
-        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
-        if(w->color_bytes<4){
-            w->w.deallocator(w->local_buffer);
-            w->local_buffer=w->w.allocator(size*w->color_bytes);
-        }else w->local_buffer=w->w.pixel;
-    }
-    w->bmi->bmiHeader.biWidth=w->w.rectangle.w=width;
-    w->bmi->bmiHeader.biHeight=w->w.rectangle.h=-height;
+static void _sgw_pos(HWND hWnd,const int x,const int y,const unsigned int w,const unsigned int h,const int flags){
+    const DWORD s1=GetWindowLong(hWnd,GWL_STYLE), s2=GetWindowLong(hWnd,GWL_EXSTYLE);
+    RECT r={0,0,w,h};
+    AdjustWindowRectEx(&r,s1,FALSE,s2);
+    SetWindowPos(hWnd,NULL, x,y, r.right-r.left,r.bottom-r.top, flags);
 }
 
-void sgw_rect(SGW * const _w,const int x,const int y,const unsigned int width,const unsigned int height){
+void sgw_rect(SGW * const _w,const enum SGW mode,...){
     SGW_UNCONST(w,_w);
-    _sgw_resize(w,width,height);
-    SetWindowPos(w->window,0,(w->w.rectangle.x=x),(w->w.rectangle.y=y),width+w->add_w,height+w->add_h,0);
+    switch(mode){
+        case SGW_XY:{
+            va_list l; va_start(l,mode);{
+            const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
+            _sgw_pos(w->window,(w->w.rectangle.x=a[0]),(w->w.rectangle.y=a[1]),0,0,SWP_NOSIZE);
+            w->w.mode=SGW_XYWH; return;
+        }}
+        case SGW_WH:{
+            va_list l; va_start(l,mode);{
+            const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
+            _sgw_pos(w->window,0,0,a[0],a[1],SWP_NOMOVE);
+            _sgw_rect(w);
+            w->w.mode=SGW_XYWH; return;
+        }}
+        case SGW_XYWH:{
+            va_list l; va_start(l,mode);{
+            const int a[]={va_arg(l,int),va_arg(l,int),va_arg(l,int),va_arg(l,int)}; va_end(l);
+            _sgw_pos(w->window,a[0],a[1],a[2],a[3],0);
+            _sgw_rect(w);
+            w->w.mode=SGW_XYWH; return;
+        }}
+        case SGW_TRAY:{
+            ShowWindow(w->window,SW_MINIMIZE);
+            w->w.mode=SGW_TRAY; return;
+        }
+        case SGW_MAX:{
+            ShowWindow(w->window,SW_MAXIMIZE);
+            _sgw_rect(w);
+            w->w.mode=SGW_XYWH; return;
+        }
+        case SGW_FULLSCREEN:{
+            return;
+            if(w->w.mode==SGW_FULLSCREEN) return;
+            w->w.mode=SGW_FULLSCREEN; return;
+        }
+    }
 }
 
 static void _sge_unrepeat(sgw_win * const w,MSG *e){
@@ -232,13 +272,8 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
             e->async=(void*)message->lParam;
             return SGE_ASYNC;
         case WM_MOVE:
-        case WM_SIZE:{
-            RECT r[1]; GetWindowRect(w->window,r);
-            _sgw_resize(w,r->right-w->add_w-(w->w.rectangle.x=r->left),r->bottom-w->add_h-(w->w.rectangle.y=r->top));
-        }   return SGE_RECTANGLE;
-        case WM_MINIMIZE:
-            w->w.rectangle.x=w->w.rectangle.y=-100;
-            w->w.rectangle.w=w->w.rectangle.h=0;
+        case WM_SIZE:
+            _sgw_rect(w);
             return SGE_RECTANGLE;
         case WM_MOUSEMOVE:
             _sge_unrepeat(w,message);

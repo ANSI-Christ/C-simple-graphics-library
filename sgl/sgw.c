@@ -3,6 +3,7 @@
 /* Copyright (c) 2024 ANSI-Christ  */
 /* * * * * * * * * * * * * * * * * */
 
+#include <stdarg.h>
 #include <string.h>
 #include "sgw.h"
 

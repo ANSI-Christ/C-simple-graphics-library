@@ -38,6 +38,16 @@ typedef union{
 }SGE;
 
 
+enum SGW{
+    SGW_XY=0,
+    SGW_WH,
+    SGW_XYWH,
+    SGW_MAX,
+    SGW_TRAY,
+    SGW_FULLSCREEN,
+
+};
+
 typedef struct _sgw{
 
     const char *title;
@@ -46,6 +56,8 @@ typedef struct _sgw{
 
     void*(*allocator)(size_t);
     void(*deallocator)(void*);
+
+    enum SGW mode;
 
     SGK keys;
 
@@ -73,11 +85,11 @@ void sgw_render(SGW *w);
 
 void sgw_fill(SGW *w,SGC c);
 
+void sgw_rect(SGW *w,enum SGW mode,...);
+
 void sgw_async(SGW *w,const void *p);
 
 void sgw_title(SGW *w,const char *title);
-
-void sgw_rect(SGW *w,int x,int y,unsigned int width,unsigned int height);
 
 enum SGE sgw_event(SGW *w,int t,SGE *e);
 
