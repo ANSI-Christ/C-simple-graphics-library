@@ -13,8 +13,8 @@
 enum SGE{
     SGE_NONE=0,
     SGE_CLOSE,
+    SGE_ASYNC,     /* SGE.async */
     SGE_RECTANGLE, /* SGW.rectangle */
-    SGE_ASYNC,     /* SGE.rectangle */
     SGE_PRESS,     /* SGE.key */
     SGE_RELEASE,   /* SGE.key */
     SGE_CURSOR,    /* SGW.cursor */

@@ -10,6 +10,13 @@
 #include <X11/keysym.h>
 #include <X11/Xutil.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
+#ifndef FIONREAD
+    #include <sys/filio.h>
+#endif
+#ifndef FIONREAD
+    #include <stropts.h>
+#endif
 
 static SGK _sgk_keyboard(void * const x11){
     XKeyEvent * const key=(XKeyEvent*)x11;
@@ -230,23 +237,35 @@ static void _sge_unrepeat(sgw_x11 * const w,XEvent *e){
     }
 }
 
-enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
-    SGW_UNCONST(w,_w);
+static int _sge_wait(const sgw_x11 * const w,const int t){
     const int fd[2]={w->xconn,w->ctrl[0]};
     struct timeval tm[1]={{t/1000,(t%1000)*1000}};
-    fd_set set[1];
-    FD_ZERO(set);
-    FD_SET(fd[0],set);
-    FD_SET(fd[1],set);
-    if(select(fd[fd[0]<fd[1]]+1,set,NULL,NULL,t<0 ? NULL : tm)<1)
-        return SGE_NONE;
-    if(FD_ISSET(fd[1],set)){
-        const int bytes=read(fd[1],&e->async,sizeof(e->async));
-        return SGE_ASYNC; (void)bytes;
+    fd_set set[1]; FD_ZERO(set); FD_SET(fd[0],set); FD_SET(fd[1],set);
+    switch(select(fd[fd[0]<fd[1]]+1,set,NULL,NULL,t<0 ? NULL : tm)){
+        case -1: return -1;
+        case 0: return 0;
     }
-    if(FD_ISSET(fd[0],set)){
-        XEvent message[1];
-        do{
+    if(FD_ISSET(fd[1],set)) return 1;
+    if(FD_ISSET(fd[0],set)) return 2;
+    return 0;
+}
+
+enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
+    SGW_UNCONST(w,_w);
+    int var;
+    #ifdef FIONREAD
+    if(!ioctl(w->ctrl[0],FIONREAD,&var) && var>0) var=1; else
+    #endif
+    if(XPending(w->display)>0) var=2;
+    else var=_sge_wait(w,t);
+    switch(var){
+        case -1: return SGE_CLOSE;
+        case 1:{
+            const int bytes=read(w->ctrl[0],&e->async,sizeof(e->async));
+            return SGE_ASYNC; (void)bytes;
+        }
+        case 2: do{
+            XEvent message[1];
             XNextEvent(w->display,message);
             switch(message->type){
                 case ClientMessage:
