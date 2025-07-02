@@ -3,7 +3,7 @@
 /* Copyright (c) 2024 ANSI-Christ  */
 /* * * * * * * * * * * * * * * * * */
 
-#include <unistd.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <windows.h>
 #include <windowsx.h>
@@ -267,7 +267,7 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
             case WM_CLOSE:
                 return SGE_CLOSE;
             case WM_TIMER:
-                if(t>0) return NONE;
+                if(t>0) return SGE_NONE;
                 break;
             case WM_ASYNC_POINTER:
                 e->async=(void*)message->lParam;
