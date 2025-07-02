@@ -60,20 +60,20 @@ static void _sgc_convert(const SGC *c32,const unsigned int size,const unsigned c
     }
 }
 
-static int _sgk_press(SGK key, SGK * const keys, SGK * const pressed){
-    if(!key) return SGE_UNKNOWN;
+static char _sgk_press(SGK key, SGK * const keys, SGK * const pressed){
+    if(!key) return 0;
     if(key>0xff) *keys|=key;
     else *keys=(*keys&~0xff)|key;
     *pressed=*keys;
-    return SGE_PRESS;
+    return 1;
 }
 
 static int _sgk_release(SGK key, SGK * const keys, SGK * const released){
-    if(!key) return SGE_UNKNOWN;
+    if(!key) return 0;
     *released=*keys;
     if(key>0xff) *keys^=key;
     else *keys&=~0xff;
-    return SGE_RELEASE;
+    return 1;
 }
 
 #include "./sgw/sg_impl.h"

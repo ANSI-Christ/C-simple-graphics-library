@@ -258,45 +258,45 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
         SetTimer(w->window,(UINT_PTR)1,USER_TIMER_MAXIMUM,0);
     }else if(!PeekMessage(message,w->window,0,0,PM_REMOVE))
         return SGE_NONE;
-
-    w->message=WM_NULL;
-    DispatchMessage(message);
-    if(w->message!=WM_NULL)
-        message->message=w->message;
-
-    switch(message->message){
-        case WM_CLOSE:
-            return SGE_CLOSE;
-        case WM_TIMER:
-            if(t>0) return SGE_TIMEOUT;
-            return SGE_UNKNOWN;
-        case WM_ASYNC_POINTER:
-            e->async=(void*)message->lParam;
-            return SGE_ASYNC;
-        case WM_MOVE:
-        case WM_SIZE:
-            _sgw_rect(w);
-            return SGE_RECTANGLE;
-        case WM_MOUSEMOVE:
-            _sge_unrepeat(w,message);
-            w->w.cursor.x=GET_X_LPARAM(message->lParam);
-            w->w.cursor.y=GET_Y_LPARAM(message->lParam);
-            return SGE_CURSOR;
-        case WM_MOUSEWHEEL:
-            e->scroll=(GET_WHEEL_DELTA_WPARAM(message->wParam)>0 ? SGE_SCROLL_UP : SGE_SCROLL_DOWN);
-            return SGE_SCROLL;
-        case WM_LBUTTONDOWN: return _sgk_press(SGK_LB,&w->w.keys,&e->key);
-        case WM_LBUTTONUP:   return _sgk_release(SGK_LB,&w->w.keys,&e->key);
-        case WM_RBUTTONDOWN: return _sgk_press(SGK_RB,&w->w.keys,&e->key);
-        case WM_RBUTTONUP:   return _sgk_release(SGK_RB,&w->w.keys,&e->key);
-        case WM_MBUTTONDOWN: return _sgk_press(SGK_MB,&w->w.keys,&e->key);
-        case WM_MBUTTONUP:   return _sgk_release(SGK_MB,&w->w.keys,&e->key);
-        case WM_SYSKEYDOWN:
-        case WM_KEYDOWN:     return _sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key);
-        case WM_SYSKEYUP:
-        case WM_KEYUP:       return _sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key);
-    }
-    return SGE_UNKNOWN;
+    do{
+        w->message=WM_NULL;
+        DispatchMessage(message);
+        if(w->message!=WM_NULL)
+            message->message=w->message;
+        switch(message->message){
+            case WM_CLOSE:
+                return SGE_CLOSE;
+            case WM_TIMER:
+                if(t>0) return NONE;
+                break;
+            case WM_ASYNC_POINTER:
+                e->async=(void*)message->lParam;
+                return SGE_ASYNC;
+            case WM_MOVE:
+            case WM_SIZE:
+                _sgw_rect(w);
+                return SGE_RECTANGLE;
+            case WM_MOUSEMOVE:
+                _sge_unrepeat(w,message);
+                w->w.cursor.x=GET_X_LPARAM(message->lParam);
+                w->w.cursor.y=GET_Y_LPARAM(message->lParam);
+                return SGE_CURSOR;
+            case WM_MOUSEWHEEL:
+                e->scroll=(GET_WHEEL_DELTA_WPARAM(message->wParam)>0 ? SGE_SCROLL_UP : SGE_SCROLL_DOWN);
+                return SGE_SCROLL;
+            case WM_LBUTTONDOWN: if(_sgk_press(SGK_LB,&w->w.keys,&e->key))   return SGE_PRESS;   break;
+            case WM_LBUTTONUP:   if(_sgk_release(SGK_LB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
+            case WM_RBUTTONDOWN: if(_sgk_press(SGK_RB,&w->w.keys,&e->key))   return SGE_PRESS;   break;
+            case WM_RBUTTONUP:   if(_sgk_release(SGK_RB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
+            case WM_MBUTTONDOWN: if(_sgk_press(SGK_MB,&w->w.keys,&e->key))   return SGE_PRESS;   break;
+            case WM_MBUTTONUP:   if(_sgk_release(SGK_MB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
+            case WM_SYSKEYDOWN:
+            case WM_KEYDOWN:     if(_sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key)) return SGE_PRESS; break;
+            case WM_SYSKEYUP:
+            case WM_KEYUP:       if(_sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key)) return SGE_RELEASE; break;
+        }
+    }while(PeekMessage(message,w->window,0,0,PM_REMOVE));
+    return SGE_NONE;
 }
 
 #undef SGW_CLASS_NAME

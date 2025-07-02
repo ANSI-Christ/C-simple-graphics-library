@@ -82,24 +82,6 @@ typedef struct{
     }atom;
 }sgw_x11;
 
-static void _sgw_rect(sgw_x11 * const w){
-    Window root; unsigned int size,border,depth;
-    XGetGeometry(w->display,w->window,&root,&w->w.rectangle.x,&w->w.rectangle.y,&w->w.rectangle.w,&w->w.rectangle.h,&border,&depth);
-    size=(w->w.rectangle.w-=border>>1)*(w->w.rectangle.h-=border>>1);
-    if(size>w->color_max){
-        w->color_max=size;
-        w->w.deallocator(w->w.pixel);
-        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
-        if(w->color_bytes<4){
-            w->w.deallocator(w->image->data);
-            w->image->data=(char*)w->w.allocator(size*w->color_bytes);
-        }else w->image->data=(char*)w->w.pixel;
-    }
-    w->image->width=w->w.rectangle.w;
-    w->image->height=w->w.rectangle.h;
-    w->image->bytes_per_line=w->image->width*w->color_bytes;
-}
-
 #define SGW_UNCONST(_name_,_const_) sgw_x11 * const _name_ = (sgw_x11*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
 
 void sgw_close(SGW * const _w){
@@ -123,6 +105,24 @@ void sgw_close(SGW * const _w){
         }
         _w->deallocator(w);
     }
+}
+
+static void _sgw_rect(sgw_x11 * const w){
+    Window root; unsigned int size,border;
+    XGetGeometry(w->display,w->window,&root,&w->w.rectangle.x,&w->w.rectangle.y,&w->w.rectangle.w,&w->w.rectangle.h,&border,&size);
+    size=(w->w.rectangle.w-=border>>1)*(w->w.rectangle.h-=border>>1);
+    if(size>w->color_max){
+        w->color_max=size;
+        w->w.deallocator(w->w.pixel);
+        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
+        if(w->color_bytes<4){
+            w->w.deallocator(w->image->data);
+            w->image->data=(char*)w->w.allocator(size*w->color_bytes);
+        }else w->image->data=(char*)w->w.pixel;
+    }
+    w->image->width=w->w.rectangle.w;
+    w->image->height=w->w.rectangle.h;
+    w->image->bytes_per_line=w->image->width*w->color_bytes;
 }
 
 SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
@@ -238,54 +238,53 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
     FD_ZERO(set);
     FD_SET(fd[0],set);
     FD_SET(fd[1],set);
-    switch(select(fd[fd[0]<fd[1]]+1,set,NULL,NULL,t<0 ? NULL : tm)){
-        case -1: return SGE_NONE;
-        case 0: return t ? SGE_TIMEOUT : SGE_NONE;
-    }
+    if(select(fd[fd[0]<fd[1]]+1,set,NULL,NULL,t<0 ? NULL : tm)<1)
+        return SGE_NONE;
     if(FD_ISSET(fd[1],set)){
         const int bytes=read(fd[1],&e->async,sizeof(e->async));
         return SGE_ASYNC; (void)bytes;
     }
     if(FD_ISSET(fd[0],set)){
         XEvent message[1];
-        XNextEvent(w->display,message);
-        switch(message->type){
-            case ClientMessage:
-                if((Atom)(message->xclient.data.l[0])==w->atom.close)
-                    return SGE_CLOSE;
-                return SGE_UNKNOWN;
-            case MotionNotify:
-                _sge_unrepeat(w,message);
-                w->w.cursor.x=message->xmotion.x;
-                w->w.cursor.y=message->xmotion.y;
-                return SGE_CURSOR;
-            case ConfigureNotify:
-                _sge_unrepeat(w,message);
-                _sgw_rect(w);
-                return SGE_RECTANGLE;
-            case KeyPress:
-                return _sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key);
-            case KeyRelease:
-                return _sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key);
-            case ButtonPress:
-                switch(message->xbutton.button){
-                    case Button1: return _sgk_press(SGK_LB,&w->w.keys,&e->key);
-                    case Button2: return _sgk_press(SGK_MB,&w->w.keys,&e->key);
-                    case Button3: return _sgk_press(SGK_RB,&w->w.keys,&e->key);
-                    case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
-                    case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
-                }
-                return SGE_UNKNOWN;
-            case ButtonRelease:
-                switch(message->xbutton.button){
-                    case Button1: return _sgk_release(SGK_LB,&w->w.keys,&e->key);
-                    case Button2: return _sgk_release(SGK_MB,&w->w.keys,&e->key);
-                    case Button3: return _sgk_release(SGK_RB,&w->w.keys,&e->key);
-                    case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
-                    case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
-                }
-                return SGE_UNKNOWN;
-        }
+        do{
+            XNextEvent(w->display,message);
+            switch(message->type){
+                case ClientMessage:
+                    if((Atom)(message->xclient.data.l[0])==w->atom.close)
+                        return SGE_CLOSE;
+                    break;
+                case MotionNotify:
+                    _sge_unrepeat(w,message);
+                    w->w.cursor.x=message->xmotion.x;
+                    w->w.cursor.y=message->xmotion.y;
+                    return SGE_CURSOR;
+                case ConfigureNotify:
+                    _sge_unrepeat(w,message);
+                    _sgw_rect(w);
+                    return SGE_RECTANGLE;
+                case KeyPress:
+                    return _sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key);
+                case KeyRelease:
+                    return _sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key);
+                case ButtonPress:
+                    switch(message->xbutton.button){
+                        case Button1: if(_sgk_press(SGK_LB,&w->w.keys,&e->key)) return SGE_PRESS; break;
+                        case Button2: if(_sgk_press(SGK_MB,&w->w.keys,&e->key)) return SGE_PRESS; break;
+                        case Button3: if(_sgk_press(SGK_RB,&w->w.keys,&e->key)) return SGE_PRESS; break;
+                        case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
+                        case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
+                    } break;
+                case ButtonRelease:
+                    switch(message->xbutton.button){
+                        case Button1: if(_sgk_release(SGK_LB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
+                        case Button2: if(_sgk_release(SGK_MB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
+                        case Button3: if(_sgk_release(SGK_RB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
+                        case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
+                        case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
+                    }
+                    break;
+            }
+        }while(XPending(w->display)>0);
     }
     return SGE_NONE;
 }

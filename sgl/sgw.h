@@ -11,16 +11,14 @@
 #include "sgk.h"
 
 enum SGE{
-    SGE_CLOSE=0,
-    SGE_NONE,
-    SGE_TIMEOUT,
+    SGE_NONE=0,
+    SGE_CLOSE,
     SGE_RECTANGLE, /* SGW.rectangle */
     SGE_ASYNC,     /* SGE.rectangle */
     SGE_PRESS,     /* SGE.key */
     SGE_RELEASE,   /* SGE.key */
     SGE_CURSOR,    /* SGW.cursor */
     SGE_SCROLL,    /* SGE.scroll */
-    SGE_UNKNOWN
 };
 
 
