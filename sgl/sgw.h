@@ -45,7 +45,6 @@ enum SGW{
     SGW_MAX,
     SGW_TRAY,
     SGW_FULLSCREEN,
-
 };
 
 typedef struct _sgw{

@@ -11,7 +11,7 @@ int main(int argc,char **argv){
         printf("cant open window\n");
         return -1;
     }
-    sgw_rect(w,50,50,800,600);
+    sgw_rect(w,SGW_XYWH,50,50,800,600);
     sgm_cfg(m,w->pixel,w->rectangle.w,w->rectangle.h,sizeof(*w->pixel));
 
     while(1){

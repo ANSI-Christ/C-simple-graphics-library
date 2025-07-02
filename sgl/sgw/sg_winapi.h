@@ -188,11 +188,10 @@ void sgw_render(SGW * const _w){
     SetDIBitsToDevice(w->dc, 0,0, width,height, 0,0, 0,height, w->local_buffer, w->bmi, DIB_RGB_COLORS);
 }
 
-static void _sgw_pos(HWND hWnd,const int x,const int y,const unsigned int w,const unsigned int h,const int flags){
-    const DWORD s1=GetWindowLong(hWnd,GWL_STYLE), s2=GetWindowLong(hWnd,GWL_EXSTYLE);
-    RECT r={0,0,w,h};
-    AdjustWindowRectEx(&r,s1,FALSE,s2);
-    SetWindowPos(hWnd,NULL, x,y, r.right-r.left,r.bottom-r.top, flags);
+static void _sgw_convert(HWND w,unsigned int a[4]){
+    RECT r={0,0,a[2],a[3]};
+    AdjustWindowRectEx(&r,GetWindowLong(w,GWL_STYLE),FALSE,GetWindowLong(w,GWL_EXSTYLE));
+    a[2]=r.right-r.left; a[3]=r.bottom-r.top; a[0]+=r.left; a[1]+=r.top;
 }
 
 void sgw_rect(SGW * const _w,const enum SGW mode,...){
@@ -200,21 +199,24 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     switch(mode){
         case SGW_XY:{
             va_list l; va_start(l,mode);{
-            const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
-            _sgw_pos(w->window,(w->w.rectangle.x=a[0]),(w->w.rectangle.y=a[1]),0,0,SWP_NOSIZE);
+            unsigned int a[4]={va_arg(l,int),va_arg(l,int),200,200}; va_end(l);
+            _sgw_convert(w->window,a);
+            SetWindowPos(w->window,0,(w->w.rectangle.x=a[0]),(w->w.rectangle.y=a[1]),0,0,SWP_NOSIZE);
             w->w.mode=SGW_XYWH; return;
         }}
         case SGW_WH:{
             va_list l; va_start(l,mode);{
-            const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
-            _sgw_pos(w->window,0,0,a[0],a[1],SWP_NOMOVE);
+            unsigned int a[4]={0,0,va_arg(l,int),va_arg(l,int)}; va_end(l);
+            _sgw_convert(w->window,a);
+            SetWindowPos(w->window,0,0,0,a[0],a[1],SWP_NOMOVE);
             _sgw_rect(w);
             w->w.mode=SGW_XYWH; return;
         }}
         case SGW_XYWH:{
             va_list l; va_start(l,mode);{
-            const int a[]={va_arg(l,int),va_arg(l,int),va_arg(l,int),va_arg(l,int)}; va_end(l);
-            _sgw_pos(w->window,a[0],a[1],a[2],a[3],0);
+            unsigned int a[4]={va_arg(l,int),va_arg(l,int),va_arg(l,int),va_arg(l,int)}; va_end(l);
+            _sgw_convert(w->window,a);
+            SetWindowPos(w->window,0,a[0],a[1],a[2],a[3],0);
             _sgw_rect(w);
             w->w.mode=SGW_XYWH; return;
         }}
@@ -289,9 +291,9 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
         case WM_RBUTTONUP:   return _sgk_release(SGK_RB,&w->w.keys,&e->key);
         case WM_MBUTTONDOWN: return _sgk_press(SGK_MB,&w->w.keys,&e->key);
         case WM_MBUTTONUP:   return _sgk_release(SGK_MB,&w->w.keys,&e->key);
-        case WM_SYSKEYDOWN:  return _sgk_press(SGK_ALT,&w->w.keys,&e->key);
-        case WM_SYSKEYUP:    return _sgk_release(SGK_ALT,&w->w.keys,&e->key);
+        case WM_SYSKEYDOWN:
         case WM_KEYDOWN:     return _sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key);
+        case WM_SYSKEYUP:
         case WM_KEYUP:       return _sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key);
     }
     return SGE_UNKNOWN;
