@@ -568,12 +568,12 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
     if(!p) return;
     sgm_cfg(m_char,p,f->bpw,f->bph,sizeof(char));
 
-    for(;*s;dx+=ox){
+    while(*s){
         const unsigned char id=*(s++);
-        switch(id){
-            case '\n': dy+=oy; dx=x-_sgf_dx(s,ox,f->gap_w,a)-ox; continue;
-            case ' ':
-            case '\t': continue;
+        if(id=='\n'){
+            dx=x-_sgf_dx(s,ox,f->gap_w,a);
+            dy+=oy;
+            continue;
         }
         if(id>=char_begin && id<char_end){
             const char *bm=f->bitmap+(id-char_begin)*h;
@@ -584,6 +584,7 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
             sgm_sub(m,dx,dy,f->w,f->h,0,m_symb);
             sgm_convert(m_char,m_symb,(char(*)(const void*,void*,const void*))converter,info);
         }
+        dx+=ox;
     }
     if(m_char->data!=_buffer)
         free(m_char->data);
