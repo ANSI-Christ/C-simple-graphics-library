@@ -45,7 +45,7 @@ static SGK _sgk_keyboard(const MSG * const msg){
             if(GetKeyboardState(s)){
                 unsigned char k[2];
                 s[VK_CONTROL]=s[VK_MENU]=0;
-                if(ToAscii(msg->wParam,msg->lParam,s,k,0)==1 && k[0]>0x20)
+                if(ToAscii(msg->wParam,msg->lParam,s,k,0)==1 && k[0]>0x1F)
                     return k[0];
             }
         }
@@ -202,7 +202,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
             unsigned int a[4]={va_arg(l,int),va_arg(l,int),200,200}; va_end(l);
             _sgw_convert(w->window,a);
             SetWindowPos(w->window,0,(w->w.rectangle.x=a[0]),(w->w.rectangle.y=a[1]),0,0,SWP_NOSIZE);
-            w->w.mode=SGW_XYWH; return;
+            w->w.mode=SGW_XYWH; break;
         }}
         case SGW_WH:{
             va_list l; va_start(l,mode);{
@@ -210,7 +210,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
             _sgw_convert(w->window,a);
             SetWindowPos(w->window,0,0,0,a[0],a[1],SWP_NOMOVE);
             _sgw_rect(w);
-            w->w.mode=SGW_XYWH; return;
+            w->w.mode=SGW_XYWH; break;
         }}
         case SGW_XYWH:{
             va_list l; va_start(l,mode);{
@@ -218,22 +218,23 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
             _sgw_convert(w->window,a);
             SetWindowPos(w->window,0,a[0],a[1],a[2],a[3],0);
             _sgw_rect(w);
-            w->w.mode=SGW_XYWH; return;
+            w->w.mode=SGW_XYWH; break;
         }}
         case SGW_TRAY:{
             ShowWindow(w->window,SW_MINIMIZE);
-            w->w.mode=SGW_TRAY; return;
+            w->w.mode=SGW_TRAY; break;
         }
         case SGW_MAX:{
             ShowWindow(w->window,SW_MAXIMIZE);
             _sgw_rect(w);
-            w->w.mode=SGW_XYWH; return;
+            w->w.mode=SGW_XYWH; break;
         }
         case SGW_FULLSCREEN:{
-            return;
+            break;
             if(w->w.mode==SGW_FULLSCREEN) return;
             w->w.mode=SGW_FULLSCREEN; return;
         }
+        default: return;
     }
 }
 

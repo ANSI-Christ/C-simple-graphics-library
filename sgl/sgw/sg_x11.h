@@ -60,7 +60,7 @@ static SGK _sgk_keyboard(void * const x11){
         _CASE(F12,F12);
         #undef _CASE
         default:
-            if(k>0x20 && k<256)
+            if(k>0x1F && k<256)
                 return s[0];
             break;
     }
@@ -190,41 +190,43 @@ void sgw_render(SGW * const _w){
 
 void sgw_rect(SGW * const _w,const enum SGW mode,...){
     SGW_UNCONST(w,_w);
-    switch(mode){
+    switch(mode & 0xff){
         case SGW_XY:{
             va_list l; va_start(l,mode);{
             const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
             XMoveWindow(w->display,w->window,(w->w.rectangle.x=a[0]),(w->w.rectangle.y=a[1]));
-            w->w.mode=SGW_XYWH; return;
+            w->w.mode=SGW_XYWH; break;
         }}
         case SGW_WH:{
             va_list l; va_start(l,mode);{
             const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
             XResizeWindow(w->display,w->window,a[0],a[1]);
             _sgw_rect(w);
-            w->w.mode=SGW_XYWH; return;
-        }}
+            w->w.mode=SGW_XYWH; break;
+        }} break;
         case SGW_XYWH:{
             va_list l; va_start(l,mode);{
             const int a[]={va_arg(l,int),va_arg(l,int),va_arg(l,int),va_arg(l,int)}; va_end(l);
             XMoveResizeWindow(w->display,w->window,a[0],a[1],a[2],a[3]);
             _sgw_rect(w);
-            va_end(l); w->w.mode=SGW_XYWH; return;
+            va_end(l); w->w.mode=SGW_XYWH; break;
         }}
         case SGW_TRAY:{
             XIconifyWindow(w->display,w->window,w->screen);
-            w->w.mode=SGW_TRAY; return;
+            w->w.mode=SGW_TRAY; break;
         }
         case SGW_MAX:{
             XMoveResizeWindow(w->display,w->window,0,0,DisplayWidth(w->display,w->screen),DisplayHeight(w->display,w->screen));
             _sgw_rect(w);
-            w->w.mode=SGW_XYWH; return;
+            w->w.mode=SGW_XYWH; break;
         }
         case SGW_FULLSCREEN:{
+            break;
             return;
             if(w->w.mode==SGW_FULLSCREEN) return;
             w->w.mode=SGW_FULLSCREEN; return;
         }
+        default: return;
     }
 }
 
@@ -239,15 +241,14 @@ static void _sge_unrepeat(sgw_x11 * const w,XEvent *e){
 }
 
 static int _sge_wait(const sgw_x11 * const w,const int t){
-    const int fd[2]={w->xconn,w->ctrl[0]};
     struct timeval tm[1]={{t/1000,(t%1000)*1000}};
-    fd_set set[1]; FD_ZERO(set); FD_SET(fd[0],set); FD_SET(fd[1],set);
-    switch(select(fd[fd[0]<fd[1]]+1,set,NULL,NULL,t<0 ? NULL : tm)){
+    fd_set set[1]; FD_ZERO(set); FD_SET(w->xconn,set); FD_SET(w->ctrl[0],set);
+    switch(select((w->xconn>w->ctrl[0]?w->xconn:w->ctrl[0])+1,set,NULL,NULL,t<0 ? NULL : tm)){
         case -1: return -1;
         case 0: return 0;
     }
-    if(FD_ISSET(fd[1],set)) return 1;
-    if(FD_ISSET(fd[0],set)) return 2;
+    if(FD_ISSET(w->ctrl[0],set)) return 1;
+    if(FD_ISSET(w->xconn,set)) return 2;
     return 0;
 }
 
@@ -263,7 +264,7 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
         case -1: return SGE_CLOSE;
         case 1:{
             const int bytes=read(w->ctrl[0],&e->async,sizeof(e->async));
-            return SGE_ASYNC; (void)bytes;
+            return SGE_ASYNC; if(bytes){} break;
         }
         case 2: do{
             XEvent message[1];
@@ -283,9 +284,13 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                     _sgw_rect(w);
                     return SGE_RECTANGLE;
                 case KeyPress:
-                    return _sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key);
+                    if(_sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key))
+                        return SGE_PRESS;
+                    break;
                 case KeyRelease:
-                    return _sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key);
+                    if(_sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key))
+                        return SGE_RELEASE;
+                    break;
                 case ButtonPress:
                     switch(message->xbutton.button){
                         case Button1: if(_sgk_press(SGK_LB,&w->w.keys,&e->key)) return SGE_PRESS; break;

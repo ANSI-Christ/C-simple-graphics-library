@@ -32,6 +32,7 @@ typedef enum{
     SGK_F11,
     SGK_F12,
     SGK_ESC=0x1B,
+    SGK_SPACE=' ',
     SGK_DEL=0x7F,
     SGK_LB=1<<8,
     SGK_RB=1<<9,

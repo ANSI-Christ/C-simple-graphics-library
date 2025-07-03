@@ -82,9 +82,9 @@ void sgw_render(SGW *w);
 
 void sgw_fill(SGW *w,SGC c);
 
-void sgw_rect(SGW *w,enum SGW mode,...);
-
 void sgw_async(SGW *w,const void *p);
+
+void sgw_rect(SGW *w,enum SGW mode,...);
 
 void sgw_title(SGW *w,const char *title);
 

@@ -570,12 +570,11 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
 
     for(;*s;dx+=ox){
         const unsigned char id=*(s++);
-        if(id=='\n'){
-            dy+=oy;
-            dx=x-_sgf_dx(s,ox,f->gap_w,a);
-            continue;
+        switch(id){
+            case '\n': dy+=oy; dx=x-_sgf_dx(s,ox,f->gap_w,a)-ox; continue;
+            case ' ':
+            case '\t': continue;
         }
-
         if(id>=char_begin && id<char_end){
             const char *bm=f->bitmap+(id-char_begin)*h;
             for(i=0,p=m_char->data;i<m_char->h;++i,bm+=w)
