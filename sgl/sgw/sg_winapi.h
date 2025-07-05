@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <pthread.h>
+
 #include <windows.h>
 #include <windowsx.h>
 
@@ -24,6 +25,7 @@ static SGK _sgk_keyboard(const MSG * const msg){
         _CASE(DELETE,DEL);
         _CASE(SHIFT,SHIFT);
         _CASE(CONTROL,CTRL);
+        _CASE(MENU,ALT);
         _CASE(PRIOR,PGU);
         _CASE(NEXT,PGD);
         _CASE(INSERT,INS);
@@ -74,9 +76,9 @@ typedef struct{
 #define SGW_UNCONST(_name_,_const_) sgw_win * const _name_ = (sgw_win*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
 
 #define WM_ASYNC_POINTER (WM_USER+1)
-#define WM_MINIMIZE (WM_USER+2)
 
 #define SGW_CLASS_NAME L"SGW_CLASS"
+#define SGW_STYLE (WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_BORDER | WS_MINIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME)
 static pthread_once_t _sgw_once=PTHREAD_ONCE_INIT;
 
 static LRESULT CALLBACK _sgw_WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam){
@@ -85,7 +87,7 @@ static LRESULT CALLBACK _sgw_WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM
         case WM_DESTROY: KillTimer(hWnd,1); break;
         case WM_CLOSE: ((sgw_win*)GetWindowLongPtr(hWnd,GWLP_USERDATA))->message=message; return (LRESULT)0;
         case WM_MOVE:
-        case WM_SIZE: ((sgw_win*)GetWindowLongPtr(hWnd,GWLP_USERDATA))->message = (wParam==SIZE_MINIMIZED ? WM_MINIMIZE : message); break;
+        case WM_SIZE: ((sgw_win*)GetWindowLongPtr(hWnd,GWLP_USERDATA))->message=message; break;
     }
     return DefWindowProcA(hWnd, message, wParam, lParam);
 }
@@ -144,13 +146,12 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
     if(!deallocator) deallocator=free;{
     SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
-        const int style=WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_BORDER | WS_MINIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME;
         memset(w,0,sizeof(*w));
-        w->w.mode=SGW_XYWH;
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
+        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         pthread_once(&_sgw_once,_sgw_class_init);
-        if( !(w->window=CreateWindow(SGW_CLASS_NAME,L" ",style,50,50,100,100,NULL,NULL,NULL,w)) )
+        if( !(w->window=CreateWindow(SGW_CLASS_NAME,L" ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
             break;
         w->dc=GetDC(w->window);
         switch( (w->w.bitness=GetDeviceCaps(w->dc,BITSPIXEL)) ){
@@ -188,53 +189,53 @@ void sgw_render(SGW * const _w){
     SetDIBitsToDevice(w->dc, 0,0, width,height, 0,0, 0,height, w->local_buffer, w->bmi, DIB_RGB_COLORS);
 }
 
-static void _sgw_convert(HWND w,unsigned int a[4]){
-    RECT r={0,0,a[2],a[3]};
-    AdjustWindowRectEx(&r,GetWindowLong(w,GWL_STYLE),FALSE,GetWindowLong(w,GWL_EXSTYLE));
-    a[2]=r.right-r.left; a[3]=r.bottom-r.top; a[0]+=r.left; a[1]+=r.top;
+static void _sgw_convert(HWND w,RECT * const r){
+    r->right+=r->left; r->bottom+=r->top;
+    AdjustWindowRectEx(r,GetWindowLong(w,GWL_STYLE),FALSE,GetWindowLong(w,GWL_EXSTYLE));
+    r->right-=r->left; r->bottom-=r->top;
 }
 
 void sgw_rect(SGW * const _w,const enum SGW mode,...){
     SGW_UNCONST(w,_w);
-    switch(mode){
-        case SGW_XY:{
-            va_list l; va_start(l,mode);{
-            unsigned int a[4]={va_arg(l,int),va_arg(l,int),200,200}; va_end(l);
-            _sgw_convert(w->window,a);
-            SetWindowPos(w->window,0,(w->w.rectangle.x=a[0]),(w->w.rectangle.y=a[1]),0,0,SWP_NOSIZE);
-            w->w.mode=SGW_XYWH; break;
-        }}
-        case SGW_WH:{
-            va_list l; va_start(l,mode);{
-            unsigned int a[4]={0,0,va_arg(l,int),va_arg(l,int)}; va_end(l);
-            _sgw_convert(w->window,a);
-            SetWindowPos(w->window,0,0,0,a[0],a[1],SWP_NOMOVE);
-            _sgw_rect(w);
-            w->w.mode=SGW_XYWH; break;
-        }}
-        case SGW_XYWH:{
-            va_list l; va_start(l,mode);{
-            unsigned int a[4]={va_arg(l,int),va_arg(l,int),va_arg(l,int),va_arg(l,int)}; va_end(l);
-            _sgw_convert(w->window,a);
-            SetWindowPos(w->window,0,a[0],a[1],a[2],a[3],0);
-            _sgw_rect(w);
-            w->w.mode=SGW_XYWH; break;
-        }}
-        case SGW_TRAY:{
-            ShowWindow(w->window,SW_MINIMIZE);
-            w->w.mode=SGW_TRAY; break;
-        }
-        case SGW_MAX:{
+    va_list l;
+    RECT r={_w->rectangle.x,_w->rectangle.y,_w->rectangle.w,_w->rectangle.h};
+    int xywh=0, swp_flags;
+
+    if( (mode & SGW_MUTABLE) && !(_w->mode & SGW_MUTABLE) ){
+        SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE & ~(WS_MAXIMIZEBOX|WS_THICKFRAME));
+        SetWindowPos(w->window,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
+        w->w.mode=(_w->mode & SGW_MODES) | SGW_MUTABLE;
+    }
+    switch(mode & SGW_MODES){
+        case SGW_XY:   va_start(l,mode); xywh=1; swp_flags=SWP_NOSIZE; r.left=va_arg(l,int); r.top=va_arg(l,int); break;
+        case SGW_WH:   va_start(l,mode); xywh=1; swp_flags=SWP_NOMOVE; r.right=va_arg(l,unsigned int); r.bottom=va_arg(l,unsigned int); break;
+        case SGW_XYWH: va_start(l,mode); xywh=1; swp_flags=0; r.left=va_arg(l,int); r.top=va_arg(l,int); r.right=va_arg(l,unsigned int); r.bottom=va_arg(l,unsigned int); break;
+        case SGW_MAX:
+            w->w.mode=SGW_MAX | (_w->mode & SGW_STATES);
             ShowWindow(w->window,SW_MAXIMIZE);
             _sgw_rect(w);
-            w->w.mode=SGW_XYWH; break;
-        }
-        case SGW_FULLSCREEN:{
             break;
-            if(w->w.mode==SGW_FULLSCREEN) return;
-            w->w.mode=SGW_FULLSCREEN; return;
-        }
-        default: return;
+        case SGW_TRAY:
+            w->w.mode=SGW_TRAY | (_w->mode & SGW_STATES);
+            ShowWindow(w->window,SW_MINIMIZE);
+            break;
+        case SGW_FULLSCREEN:
+            break;
+//            if(w->w.mode==SGW_FULLSCREEN) return;
+//            w->w.mode=SGW_FULLSCREEN | (_w->mode & SGW_STATES); return;
+        default: break;
+    }
+    if(xywh && (_w->mode & SGW_MUTABLE)){
+        va_end(l);
+        w->w.mode=SGW_XYWH | (_w->mode & SGW_STATES);
+        _sgw_convert(w->window,&r);
+        SetWindowPos(w->window,0,r.left,r.top,r.right,r.bottom,swp_flags);
+        _sgw_rect(w);
+    }
+    if( (mode & SGW_FIXED) && !(_w->mode & SGW_FIXED) ){
+        SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE);
+        SetWindowPos(w->window,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
+        w->w.mode=(_w->mode & SGW_MODES) | SGW_FIXED;
     }
 }
 
@@ -301,4 +302,5 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
 }
 
 #undef SGW_CLASS_NAME
+#undef SGW_STYLE
 #undef SGW_UNCONST

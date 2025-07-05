@@ -37,12 +37,19 @@ typedef union{
 
 
 enum SGW{
-    SGW_XY=0,
-    SGW_WH,
-    SGW_XYWH,
-    SGW_MAX,
-    SGW_TRAY,
-    SGW_FULLSCREEN,
+
+    SGW_MODES=0xFF,
+        SGW_XY=1,
+        SGW_WH,
+        SGW_XYWH,
+        SGW_MAX,
+        SGW_TRAY,
+        SGW_FULLSCREEN,
+
+    SGW_STATES=3<<8,
+        SGW_MUTABLE=1<<8,
+        SGW_FIXED=1<<9,
+
 };
 
 typedef struct _sgw{

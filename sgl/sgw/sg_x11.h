@@ -6,11 +6,15 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <X11/Xlib.h>
-#include <X11/keysym.h>
 #include <X11/Xutil.h>
-#include <sys/select.h>
+#include <X11/Xatom.h>
+#include <X11/keysym.h>
+
 #include <sys/ioctl.h>
+#include <sys/select.h>
+
 #ifndef FIONREAD
     #if defined(__FreeBSD) || defined(__APPLE__)
         #include <sys/filio.h>
@@ -139,9 +143,9 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
 {   SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
         memset(w,0,sizeof(*w));
-        w->w.mode=SGW_XYWH;
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
+        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         w->ctrl[0]=w->ctrl[1]=-1;
         if(pipe(w->ctrl))
             break;
@@ -190,43 +194,42 @@ void sgw_render(SGW * const _w){
 
 void sgw_rect(SGW * const _w,const enum SGW mode,...){
     SGW_UNCONST(w,_w);
-    switch(mode & 0xff){
-        case SGW_XY:{
-            va_list l; va_start(l,mode);{
-            const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
-            XMoveWindow(w->display,w->window,(w->w.rectangle.x=a[0]),(w->w.rectangle.y=a[1]));
-            w->w.mode=SGW_XYWH; break;
-        }}
-        case SGW_WH:{
-            va_list l; va_start(l,mode);{
-            const int a[]={va_arg(l,int),va_arg(l,int)}; va_end(l);
-            XResizeWindow(w->display,w->window,a[0],a[1]);
-            _sgw_rect(w);
-            w->w.mode=SGW_XYWH; break;
-        }} break;
-        case SGW_XYWH:{
-            va_list l; va_start(l,mode);{
-            const int a[]={va_arg(l,int),va_arg(l,int),va_arg(l,int),va_arg(l,int)}; va_end(l);
-            XMoveResizeWindow(w->display,w->window,a[0],a[1],a[2],a[3]);
-            _sgw_rect(w);
-            va_end(l); w->w.mode=SGW_XYWH; break;
-        }}
-        case SGW_TRAY:{
+    va_list l;
+    int xywh=0, x=_w->rectangle.x, y=_w->rectangle.y;
+    unsigned int v=_w->rectangle.w, h=_w->rectangle.h;
+
+    if( (mode & SGW_MUTABLE) && !(_w->mode & SGW_MUTABLE) ){
+        XSizeHints sz={.flags=PMinSize|PMaxSize, .min_width=10, .min_height=2, .max_width=~(1<<(sizeof(sz.max_width)*8-1)), .max_height=~(1<<(sizeof(sz.max_width)*8-1))};
+        XSetWMNormalHints(w->display,w->window,&sz);
+        XMoveWindow(w->display,w->window,x,y);
+        w->w.mode=(_w->mode & SGW_MODES) | SGW_MUTABLE;
+    }
+    switch(mode & SGW_MODES){
+        case SGW_XY:   va_start(l,mode); xywh=1; x=va_arg(l,int); y=va_arg(l,int); break;
+        case SGW_WH:   va_start(l,mode); xywh=1; v=va_arg(l,unsigned int); h=va_arg(l,unsigned int); break;
+        case SGW_XYWH: va_start(l,mode); xywh=1; x=va_arg(l,int); y=va_arg(l,int); v=va_arg(l,unsigned int); h=va_arg(l,unsigned int); break;
+        case SGW_MAX:  xywh=1; x=0; y=0; v=DisplayWidth(w->display,w->screen); h=DisplayHeight(w->display,w->screen); break;
+        case SGW_TRAY:
+            w->w.mode=SGW_TRAY | (_w->mode & SGW_STATES);
             XIconifyWindow(w->display,w->window,w->screen);
-            w->w.mode=SGW_TRAY; break;
-        }
-        case SGW_MAX:{
-            XMoveResizeWindow(w->display,w->window,0,0,DisplayWidth(w->display,w->screen),DisplayHeight(w->display,w->screen));
-            _sgw_rect(w);
-            w->w.mode=SGW_XYWH; break;
-        }
-        case SGW_FULLSCREEN:{
             break;
-            return;
-            if(w->w.mode==SGW_FULLSCREEN) return;
-            w->w.mode=SGW_FULLSCREEN; return;
-        }
-        default: return;
+        case SGW_FULLSCREEN:
+            break;
+//            if(w->w.mode==SGW_FULLSCREEN) return;
+//            w->w.mode=SGW_FULLSCREEN | (_w->mode & SGW_STATES); return;
+        default: break;
+    }
+    if(xywh && (_w->mode & SGW_MUTABLE)){
+        va_end(l);
+        w->w.mode=SGW_XYWH | (_w->mode & SGW_STATES);
+        XMoveResizeWindow(w->display,w->window,x,y,v,h);
+        _sgw_rect(w);
+    }
+    if( (mode & SGW_FIXED) && !(_w->mode & SGW_FIXED) ){
+        XSizeHints sz={.flags=PMinSize|PMaxSize, .min_width=v, .min_height=h, .max_width=v, .max_height=h};
+        XSetWMNormalHints(w->display,w->window,&sz);
+        XMoveWindow(w->display,w->window,x,y);
+        w->w.mode=(_w->mode & SGW_MODES) | SGW_FIXED;
     }
 }
 
