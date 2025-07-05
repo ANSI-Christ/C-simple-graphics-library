@@ -196,6 +196,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
 
     if( (mode & SGW_MUTABLE) && !(w->w.mode & SGW_MUTABLE) ){
         SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE);
+        SetWindowPos(w->window,0,x,y,r.right,r.bottom,SWP_FRAMECHANGED);
         xywh|=1; w->w.mode=(w->w.mode & SGW_MODES) | SGW_MUTABLE;
     }
     if(w->w.mode & SGW_MUTABLE)
@@ -220,6 +221,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     }
     if( (mode & SGW_FIXED) && !(w->w.mode & SGW_FIXED) ){
         SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE & ~(WS_MAXIMIZEBOX|WS_THICKFRAME));
+        SetWindowPos(w->window,0,x,y,r.right,r.bottom,SWP_FRAMECHANGED);
         xywh|=1; w->w.mode=(w->w.mode & SGW_MODES) | SGW_FIXED;
     }
     if(xywh){
