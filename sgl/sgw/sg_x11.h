@@ -198,11 +198,11 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     int xywh=0, x=_w->rectangle.x, y=_w->rectangle.y;
     unsigned int v=_w->rectangle.w, h=_w->rectangle.h;
 
-    if( (mode & SGW_MUTABLE) && !(_w->mode & SGW_MUTABLE) ){
+    if( (mode & SGW_MUTABLE) && !(w->w.mode & SGW_MUTABLE) ){
         XSizeHints sz={.flags=PMinSize|PMaxSize, .min_width=10, .min_height=2, .max_width=~(1<<(sizeof(sz.max_width)*8-1)), .max_height=~(1<<(sizeof(sz.max_width)*8-1))};
         XSetWMNormalHints(w->display,w->window,&sz);
         XMoveWindow(w->display,w->window,x,y);
-        w->w.mode=(_w->mode & SGW_MODES) | SGW_MUTABLE;
+        w->w.mode=(w->w.mode & SGW_MODES) | SGW_MUTABLE;
     }
     switch(mode & SGW_MODES){
         case SGW_XY:   va_start(l,mode); xywh=1; x=va_arg(l,int); y=va_arg(l,int); break;
@@ -210,26 +210,26 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
         case SGW_XYWH: va_start(l,mode); xywh=1; x=va_arg(l,int); y=va_arg(l,int); v=va_arg(l,unsigned int); h=va_arg(l,unsigned int); break;
         case SGW_MAX:  xywh=1; x=0; y=0; v=DisplayWidth(w->display,w->screen); h=DisplayHeight(w->display,w->screen); break;
         case SGW_TRAY:
-            w->w.mode=SGW_TRAY | (_w->mode & SGW_STATES);
+            w->w.mode=SGW_TRAY | (w->w.mode & SGW_STATES);
             XIconifyWindow(w->display,w->window,w->screen);
             break;
         case SGW_FULLSCREEN:
             break;
 //            if(w->w.mode==SGW_FULLSCREEN) return;
-//            w->w.mode=SGW_FULLSCREEN | (_w->mode & SGW_STATES); return;
+//            w->w.mode=SGW_FULLSCREEN | (w->w.mode & SGW_STATES); return;
         default: break;
     }
-    if(xywh && (_w->mode & SGW_MUTABLE)){
+    if(xywh && (w->w.mode & SGW_MUTABLE)){
         va_end(l);
-        w->w.mode=SGW_XYWH | (_w->mode & SGW_STATES);
+        w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES);
         XMoveResizeWindow(w->display,w->window,x,y,v,h);
         _sgw_rect(w);
     }
-    if( (mode & SGW_FIXED) && !(_w->mode & SGW_FIXED) ){
+    if( (mode & SGW_FIXED) && !(w->w.mode & SGW_FIXED) ){
         XSizeHints sz={.flags=PMinSize|PMaxSize, .min_width=v, .min_height=h, .max_width=v, .max_height=h};
         XSetWMNormalHints(w->display,w->window,&sz);
         XMoveWindow(w->display,w->window,x,y);
-        w->w.mode=(_w->mode & SGW_MODES) | SGW_FIXED;
+        w->w.mode=(w->w.mode & SGW_MODES) | SGW_FIXED;
     }
 }
 

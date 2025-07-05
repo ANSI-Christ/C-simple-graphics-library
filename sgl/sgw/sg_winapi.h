@@ -189,53 +189,43 @@ void sgw_render(SGW * const _w){
     SetDIBitsToDevice(w->dc, 0,0, width,height, 0,0, 0,height, w->local_buffer, w->bmi, DIB_RGB_COLORS);
 }
 
-static void _sgw_convert(HWND w,RECT * const r){
-    r->right+=r->left; r->bottom+=r->top;
-    AdjustWindowRectEx(r,GetWindowLong(w,GWL_STYLE),FALSE,GetWindowLong(w,GWL_EXSTYLE));
-    r->right-=r->left; r->bottom-=r->top;
-}
-
 void sgw_rect(SGW * const _w,const enum SGW mode,...){
     SGW_UNCONST(w,_w);
-    va_list l;
-    RECT r={_w->rectangle.x,_w->rectangle.y,_w->rectangle.w,_w->rectangle.h};
-    int xywh=0, swp_flags;
+    RECT r={0,0,_w->rectangle.w,_w->rectangle.h};
+    va_list l; int xywh=0,x=_w->rectangle.x, y=_w->rectangle.y;
 
-    if( (mode & SGW_MUTABLE) && !(_w->mode & SGW_MUTABLE) ){
+    if( (mode & SGW_MUTABLE) && !(w->w.mode & SGW_MUTABLE) ){
         SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE);
-        SetWindowPos(w->window,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
-        w->w.mode=(_w->mode & SGW_MODES) | SGW_MUTABLE;
+        xywh|=1; w->w.mode=(w->w.mode & SGW_MODES) | SGW_MUTABLE;
     }
-    switch(mode & SGW_MODES){
-        case SGW_XY:   va_start(l,mode); xywh=1; swp_flags=SWP_NOSIZE; r.left=va_arg(l,int); r.top=va_arg(l,int); break;
-        case SGW_WH:   va_start(l,mode); xywh=1; swp_flags=SWP_NOMOVE; r.right=va_arg(l,unsigned int); r.bottom=va_arg(l,unsigned int); break;
-        case SGW_XYWH: va_start(l,mode); xywh=1; swp_flags=0; r.left=va_arg(l,int); r.top=va_arg(l,int); r.right=va_arg(l,unsigned int); r.bottom=va_arg(l,unsigned int); break;
-        case SGW_MAX:
-            w->w.mode=SGW_MAX | (_w->mode & SGW_STATES);
-            ShowWindow(w->window,SW_MAXIMIZE);
-            _sgw_rect(w);
-            break;
-        case SGW_TRAY:
-            w->w.mode=SGW_TRAY | (_w->mode & SGW_STATES);
-            ShowWindow(w->window,SW_MINIMIZE);
-            break;
-        case SGW_FULLSCREEN:
-            break;
+    if(w->w.mode & SGW_MUTABLE)
+        switch(mode & SGW_MODES){
+            case SGW_XY:   xywh|=1; w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES); va_start(l,mode); x=va_arg(l,int); y=va_arg(l,int); va_end(l); break;
+            case SGW_WH:   xywh|=1; w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES); va_start(l,mode); r.right=va_arg(l,unsigned int); r.bottom=va_arg(l,unsigned int); va_end(l); break;
+            case SGW_XYWH: xywh|=1; w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES); va_start(l,mode); x=va_arg(l,int); y=va_arg(l,int); r.right=va_arg(l,unsigned int); r.bottom=va_arg(l,unsigned int); va_end(l); break;
+            case SGW_MAX:
+                w->w.mode=SGW_MAX | (w->w.mode & SGW_STATES);
+                ShowWindow(w->window,SW_MAXIMIZE);
+                _sgw_rect(w);
+                break;
+            case SGW_FULLSCREEN:
+                break;
 //            if(w->w.mode==SGW_FULLSCREEN) return;
-//            w->w.mode=SGW_FULLSCREEN | (_w->mode & SGW_STATES); return;
-        default: break;
+//            w->w.mode=SGW_FULLSCREEN | (w->w.mode & SGW_STATES); return;
+            default: break;
+        }
+    if( (mode & SGW_MODES)==SGW_TRAY ){
+        w->w.mode=SGW_TRAY | (w->w.mode & SGW_STATES);
+        ShowWindow(w->window,SW_MINIMIZE);
     }
-    if(xywh && (_w->mode & SGW_MUTABLE)){
-        va_end(l);
-        w->w.mode=SGW_XYWH | (_w->mode & SGW_STATES);
-        _sgw_convert(w->window,&r);
-        SetWindowPos(w->window,0,r.left,r.top,r.right,r.bottom,swp_flags);
-        _sgw_rect(w);
-    }
-    if( (mode & SGW_FIXED) && !(_w->mode & SGW_FIXED) ){
+    if( (mode & SGW_FIXED) && !(w->w.mode & SGW_FIXED) ){
         SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE & ~(WS_MAXIMIZEBOX|WS_THICKFRAME));
-        SetWindowPos(w->window,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
-        w->w.mode=(_w->mode & SGW_MODES) | SGW_FIXED;
+        xywh|=1; w->w.mode=(w->w.mode & SGW_MODES) | SGW_FIXED;
+    }
+    if(xywh){
+        AdjustWindowRectEx(&r,GetWindowLong(w->window,GWL_STYLE),FALSE,GetWindowLong(w->window,GWL_EXSTYLE));
+        SetWindowPos(w->window,0,x+r.left,y+r.top,r.right-r.left,r.bottom-r.top,0);
+        _sgw_rect(w);
     }
 }
 
