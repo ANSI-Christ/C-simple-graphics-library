@@ -77,7 +77,7 @@ typedef struct{
 
 #define WM_ASYNC_POINTER (WM_USER+1)
 
-#define SGW_CLASS_NAME L"SGW_CLASS"
+#define SGW_CLASS_NAME "SGW_CLASS"
 #define SGW_STYLE (WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_BORDER | WS_MINIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME)
 static pthread_once_t _sgw_once=PTHREAD_ONCE_INIT;
 
@@ -93,18 +93,18 @@ static LRESULT CALLBACK _sgw_WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM
 }
 
 static void _sgw_class_close(void){
-    UnregisterClass(SGW_CLASS_NAME,0);
+    UnregisterClassA(SGW_CLASS_NAME,0);
 }
 
 static void _sgw_class_init(void){
     extern int atexit(void(*)(void));
     {
-        WNDCLASS wc;
+        WNDCLASSA wc;
         memset(&wc,0,sizeof(wc));
         wc.lpfnWndProc=_sgw_WndProc;
         wc.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);
         wc.lpszClassName=SGW_CLASS_NAME;
-        if(RegisterClass(&wc))
+        if(RegisterClassA(&wc))
             atexit(_sgw_class_close);
     }
 }
@@ -151,7 +151,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         w->w.deallocator=deallocator;
         w->w.mode=SGW_XYWH|SGW_MUTABLE;
         pthread_once(&_sgw_once,_sgw_class_init);
-        if( !(w->window=CreateWindow(SGW_CLASS_NAME,L" ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
+        if( !(w->window=CreateWindowA(SGW_CLASS_NAME," ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
             break;
         w->dc=GetDC(w->window);
         switch( (w->w.bitness=GetDeviceCaps(w->dc,BITSPIXEL)) ){
@@ -202,7 +202,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     int xywh=0, swp_flags;
 
     if( (mode & SGW_MUTABLE) && !(_w->mode & SGW_MUTABLE) ){
-        SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE & ~(WS_MAXIMIZEBOX|WS_THICKFRAME));
+        SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE);
         SetWindowPos(w->window,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
         w->w.mode=(_w->mode & SGW_MODES) | SGW_MUTABLE;
     }
@@ -233,7 +233,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
         _sgw_rect(w);
     }
     if( (mode & SGW_FIXED) && !(_w->mode & SGW_FIXED) ){
-        SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE);
+        SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE & ~(WS_MAXIMIZEBOX|WS_THICKFRAME));
         SetWindowPos(w->window,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_FRAMECHANGED);
         w->w.mode=(_w->mode & SGW_MODES) | SGW_FIXED;
     }
