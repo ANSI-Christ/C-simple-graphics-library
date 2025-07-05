@@ -196,8 +196,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
 
     if( (mode & SGW_MUTABLE) && !(w->w.mode & SGW_MUTABLE) ){
         SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE);
-        SetWindowPos(w->window,0,x,y,r.right,r.bottom,SWP_FRAMECHANGED);
-        xywh|=1; w->w.mode=(w->w.mode & SGW_MODES) | SGW_MUTABLE;
+        xywh^=2; w->w.mode=(w->w.mode & SGW_MODES) | SGW_MUTABLE;
     }
     if(w->w.mode & SGW_MUTABLE)
         switch(mode & SGW_MODES){
@@ -221,12 +220,13 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     }
     if( (mode & SGW_FIXED) && !(w->w.mode & SGW_FIXED) ){
         SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE & ~(WS_MAXIMIZEBOX|WS_THICKFRAME));
-        SetWindowPos(w->window,0,x,y,r.right,r.bottom,SWP_FRAMECHANGED);
-        xywh|=1; w->w.mode=(w->w.mode & SGW_MODES) | SGW_FIXED;
+        xywh^=2; w->w.mode=(w->w.mode & SGW_MODES) | SGW_FIXED;
     }
     if(xywh){
         AdjustWindowRectEx(&r,GetWindowLong(w->window,GWL_STYLE),FALSE,GetWindowLong(w->window,GWL_EXSTYLE));
-        SetWindowPos(w->window,0,x+r.left,y+r.top,r.right-r.left,r.bottom-r.top,0);
+        r.right-=r.left; r.bottom-=r.top; r.left+=x; r.top+=y;
+        if(xywh&2) SetWindowPos(w->window,0,r.left+1,r.top+1,r.right+1,r.bottom+1,SWP_FRAMECHANGED);
+        SetWindowPos(w->window,0,r.left,r.top,r.right,r.bottom,0);
         _sgw_rect(w);
     }
 }
