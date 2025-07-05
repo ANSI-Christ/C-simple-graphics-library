@@ -241,18 +241,14 @@ static void _sge_unrepeat(sgw_win * const w,MSG *e){
 }
 
 enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
+#define _SGW_RETURN(_1_) do{SetTimer(w->window,(UINT_PTR)1,USER_TIMER_MAXIMUM,0); return _1_;}while(0)
     SGW_UNCONST(w,_w);
     MSG message[1];
-    if(t<0){
-        SetTimer(w->window,(UINT_PTR)1,USER_TIMER_MAXIMUM,0);
-        GetMessage(message,w->window,0,0);
-    }else if(t>0){
-        SetTimer(w->window,(UINT_PTR)1,t,0);
-        GetMessage(message,w->window,0,0);
-        SetTimer(w->window,(UINT_PTR)1,USER_TIMER_MAXIMUM,0);
-    }else if(!PeekMessage(message,w->window,0,0,PM_REMOVE))
-        return SGE_NONE;
-    do{
+    SetTimer(w->window,(UINT_PTR)1,t>0?t:USER_TIMER_MAXIMUM,0);
+    while(1){
+        if(t) GetMessage(message,w->window,0,0);
+        else if(!PeekMessage(message,w->window,0,0,PM_REMOVE))
+            break;
         w->message=WM_NULL;
         DispatchMessage(message);
         if(w->message!=WM_NULL)
@@ -261,36 +257,39 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
             case WM_CLOSE:
                 return SGE_CLOSE;
             case WM_TIMER:
-                if(t>0) return SGE_NONE;
+                SetTimer(w->window,(UINT_PTR)1,USER_TIMER_MAXIMUM,0);
+                if(t>0 && !PeekMessage(message,w->window,0,0,PM_NOREMOVE))
+                    return SGE_NONE;
                 break;
             case WM_ASYNC_POINTER:
                 e->async=(void*)message->lParam;
-                return SGE_ASYNC;
+                _SGW_RETURN(SGE_ASYNC);
             case WM_MOVE:
             case WM_SIZE:
                 _sgw_rect(w);
-                return SGE_RECTANGLE;
+                _SGW_RETURN(SGE_RECTANGLE);
             case WM_MOUSEMOVE:
                 _sge_unrepeat(w,message);
                 w->w.cursor.x=GET_X_LPARAM(message->lParam);
                 w->w.cursor.y=GET_Y_LPARAM(message->lParam);
-                return SGE_CURSOR;
+                _SGW_RETURN(SGE_CURSOR);
             case WM_MOUSEWHEEL:
                 e->scroll=(GET_WHEEL_DELTA_WPARAM(message->wParam)>0 ? SGE_SCROLL_UP : SGE_SCROLL_DOWN);
-                return SGE_SCROLL;
-            case WM_LBUTTONDOWN: if(_sgk_press(SGK_LB,&w->w.keys,&e->key))   return SGE_PRESS;   break;
-            case WM_LBUTTONUP:   if(_sgk_release(SGK_LB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
-            case WM_RBUTTONDOWN: if(_sgk_press(SGK_RB,&w->w.keys,&e->key))   return SGE_PRESS;   break;
-            case WM_RBUTTONUP:   if(_sgk_release(SGK_RB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
-            case WM_MBUTTONDOWN: if(_sgk_press(SGK_MB,&w->w.keys,&e->key))   return SGE_PRESS;   break;
-            case WM_MBUTTONUP:   if(_sgk_release(SGK_MB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
+                _SGW_RETURN(SGE_SCROLL);
+            case WM_LBUTTONDOWN: if(_sgk_press(SGK_LB,&w->w.keys,&e->key))   _SGW_RETURN(SGE_PRESS);   break;
+            case WM_LBUTTONUP:   if(_sgk_release(SGK_LB,&w->w.keys,&e->key)) _SGW_RETURN(SGE_RELEASE); break;
+            case WM_RBUTTONDOWN: if(_sgk_press(SGK_RB,&w->w.keys,&e->key))   _SGW_RETURN(SGE_PRESS);   break;
+            case WM_RBUTTONUP:   if(_sgk_release(SGK_RB,&w->w.keys,&e->key)) _SGW_RETURN(SGE_RELEASE); break;
+            case WM_MBUTTONDOWN: if(_sgk_press(SGK_MB,&w->w.keys,&e->key))   _SGW_RETURN(SGE_PRESS);   break;
+            case WM_MBUTTONUP:   if(_sgk_release(SGK_MB,&w->w.keys,&e->key)) _SGW_RETURN(SGE_RELEASE); break;
             case WM_SYSKEYDOWN:
-            case WM_KEYDOWN:     if(_sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key)) return SGE_PRESS; break;
+            case WM_KEYDOWN:     if(_sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key)) _SGW_RETURN(SGE_PRESS); break;
             case WM_SYSKEYUP:
-            case WM_KEYUP:       if(_sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key)) return SGE_RELEASE; break;
+            case WM_KEYUP:       if(_sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key)) _SGW_RETURN(SGE_RELEASE); break;
         }
-    }while(PeekMessage(message,w->window,0,0,PM_REMOVE));
+    }
     return SGE_NONE;
+#undef _SGW_RETURN
 }
 
 #undef SGW_CLASS_NAME
