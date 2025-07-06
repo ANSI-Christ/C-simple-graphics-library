@@ -123,11 +123,16 @@ void sgw_close(SGW * const _w){
     }
 }
 
-static void _sgw_rect(sgw_win * const w){
-    RECT r; POINT p={0,0}; unsigned int size;
-    GetClientRect(w->window,&r); ClientToScreen(w->window,&p);
+static void _sgw_size(sgw_win * const w){
+    RECT r; POINT p={0,0};
+    GetClientRect(w->window,&r);
+    w->w.rectangle.w=r.right; w->w.rectangle.h=r.bottom;
+    ClientToScreen(w->window,&p);
     w->w.rectangle.x=p.x; w->w.rectangle.y=p.y;
-    size=(w->w.rectangle.w=r.right)*(w->w.rectangle.h=r.bottom);
+}
+
+static void _sgw_resize(sgw_win * const w){
+    const unsigned int size=w->w.rectangle.w*w->w.rectangle.h;
     if(size>w->color_max){
         w->color_max=size;
         w->w.deallocator(w->w.pixel);
@@ -149,7 +154,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         memset(w,0,sizeof(*w));
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
-        w->w.mode=SGW_XYWH|SGW_MUTABLE;
+        w->w.mode=SGW_NORMAL|SGW_MUTABLE;
         pthread_once(&_sgw_once,_sgw_class_init);
         if( !(w->window=CreateWindowA(SGW_CLASS_NAME," ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
             break;
@@ -164,7 +169,8 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         w->bmi->bmiHeader.biCompression=BI_RGB;
         w->bmi->bmiHeader.biPlanes=1;
         w->bmi->bmiHeader.biBitCount=w->w.bitness;
-        _sgw_rect(w);
+        _sgw_size(w);
+        _sgw_resize(w);
         return &w->w;
     }
     sgw_close(&w->w);
@@ -191,45 +197,44 @@ void sgw_render(SGW * const _w){
 
 void sgw_rect(SGW * const _w,const enum SGW mode,...){
     SGW_UNCONST(w,_w);
-    RECT r={0,0,_w->rectangle.w,_w->rectangle.h};
-    va_list l; int xywh=0,x=_w->rectangle.x, y=_w->rectangle.y;
+    int flags=0;
+    LONG_PTR style=0;
 
     if( (mode & SGW_MUTABLE) && !(w->w.mode & SGW_MUTABLE) ){
-        SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE);
-        xywh^=2; w->w.mode=(w->w.mode & SGW_MODES) | SGW_MUTABLE;
+        flags^=1;
+        SetWindowLongPtr(w->window,GWL_STYLE,GetWindowLongPtr(w->window,GWL_STYLE) | (WS_MAXIMIZEBOX|WS_THICKFRAME));
+        w->w.mode=(w->w.mode & SGW_MODES) | SGW_MUTABLE;
     }
-    if(w->w.mode & SGW_MUTABLE)
-        switch(mode & SGW_MODES){
-            case SGW_XY:   xywh|=1; w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES); va_start(l,mode); x=va_arg(l,int); y=va_arg(l,int); va_end(l); break;
-            case SGW_WH:   xywh|=1; w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES); va_start(l,mode); r.right=va_arg(l,unsigned int); r.bottom=va_arg(l,unsigned int); va_end(l); break;
-            case SGW_XYWH: xywh|=1; w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES); va_start(l,mode); x=va_arg(l,int); y=va_arg(l,int); r.right=va_arg(l,unsigned int); r.bottom=va_arg(l,unsigned int); va_end(l); break;
-            case SGW_MAX:
-                w->w.mode=SGW_MAX | (w->w.mode & SGW_STATES);
-                ShowWindow(w->window,SW_MAXIMIZE);
-                _sgw_rect(w);
-                break;
-            case SGW_FULLSCREEN:
-                break;
-//            if(w->w.mode==SGW_FULLSCREEN) return;
-//            w->w.mode=SGW_FULLSCREEN | (w->w.mode & SGW_STATES); return;
-            default: break;
+
+    if( (mode & SGW_MODES) && (w->w.mode & SGW_MUTABLE) ){
+        if( (mode & SGW_MODES)<=SGW_XYWH ){
+            va_list l;
+            va_start(l,mode);
+            if(mode & SGW_XY){ w->w.rectangle.x=va_arg(l,int); w->w.rectangle.y=va_arg(l,int); }
+            if(mode & SGW_WH){ w->w.rectangle.w=va_arg(l,unsigned int); w->w.rectangle.h=va_arg(l,unsigned int); }
+            va_end(l);
+
+            flags|=2;
+            w->w.mode=SGW_NORMAL | (w->w.mode & SGW_STATES);
         }
-    if( (mode & SGW_MODES)==SGW_TRAY ){
-        w->w.mode=SGW_TRAY | (w->w.mode & SGW_STATES);
-        ShowWindow(w->window,SW_MINIMIZE);
     }
+
     if( (mode & SGW_FIXED) && !(w->w.mode & SGW_FIXED) ){
-        SetWindowLongPtr(w->window,GWL_STYLE,SGW_STYLE & ~(WS_MAXIMIZEBOX|WS_THICKFRAME));
-        xywh^=2; w->w.mode=(w->w.mode & SGW_MODES) | SGW_FIXED;
+        flags^=1;
+        SetWindowLongPtr(w->window,GWL_STYLE,GetWindowLongPtr(w->window,GWL_STYLE) & ~(WS_MAXIMIZEBOX|WS_THICKFRAME));
+        w->w.mode=(w->w.mode & SGW_MODES) | SGW_FIXED;
     }
-    if(xywh){
-        AdjustWindowRectEx(&r,GetWindowLong(w->window,GWL_STYLE),FALSE,GetWindowLong(w->window,GWL_EXSTYLE));
-        r.right-=r.left; r.bottom-=r.top; r.left+=x; r.top+=y;
-        if(xywh&2) SetWindowPos(w->window,0,r.left+1,r.top+1,r.right+1,r.bottom+1,SWP_FRAMECHANGED);
+
+    if(flags){
+        RECT r={0,0, w->w.rectangle.w,w->w.rectangle.h};
+        AdjustWindowRectEx(&r,GetWindowLongPtr(w->window,GWL_STYLE),FALSE,GetWindowLongPtr(w->window,GWL_EXSTYLE));
+        r.right-=r.left; r.bottom-=r.top; r.left+=w->w.rectangle.x; r.top+=w->w.rectangle.y;
+        if(flags & 1) SetWindowPos(w->window,0,r.left+1,r.top,r.right+1,r.bottom+1,SWP_FRAMECHANGED);
         SetWindowPos(w->window,0,r.left,r.top,r.right,r.bottom,0);
-        _sgw_rect(w);
+        _sgw_size(w); _sgw_resize(w);
     }
 }
+
 
 static void _sge_unrepeat(sgw_win * const w,MSG *e){
     MSG next[1];
@@ -266,7 +271,8 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
                 _SGW_RETURN(SGE_ASYNC);
             case WM_MOVE:
             case WM_SIZE:
-                _sgw_rect(w);
+                _sgw_size(w);
+                _sgw_resize(w);
                 _SGW_RETURN(SGE_RECTANGLE);
             case WM_MOUSEMOVE:
                 _sge_unrepeat(w,message);

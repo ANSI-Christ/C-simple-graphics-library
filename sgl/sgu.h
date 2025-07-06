@@ -14,10 +14,10 @@
 typedef struct{
 
     enum{
-        SGI_PRESS=1,
-        SGI_RELEASE=2,
-        SGI_SCROLL=4,
-        SGI_CURSOR=8
+        SGI_PRESS = 1,
+        SGI_RELEASE = 2,
+        SGI_SCROLL = 4,
+        SGI_CURSOR = 8
     }event;
 
     SGK key;
@@ -27,8 +27,8 @@ typedef struct{
     }cursor;
 
     enum{
-        SGI_UP=-1,
-        SGI_DOWN=1,
+        SGI_UP = -1,
+        SGI_DOWN = 1,
     }scroll;
 
 }SGU;

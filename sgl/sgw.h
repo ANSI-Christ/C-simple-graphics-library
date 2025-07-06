@@ -29,8 +29,8 @@ typedef union{
     SGK key;
 
     enum{
-        SGE_SCROLL_UP=-1,
-        SGE_SCROLL_DOWN=1
+        SGE_SCROLL_UP = -1,
+        SGE_SCROLL_DOWN = 1
     }scroll;
 
 }SGE;
@@ -38,17 +38,15 @@ typedef union{
 
 enum SGW{
 
-    SGW_MODES=0xFF,
-        SGW_XY=1,
-        SGW_WH,
-        SGW_XYWH,
-        SGW_MAX,
-        SGW_TRAY,
-        SGW_FULLSCREEN,
+    SGW_MODES = 0xFF,
+        SGW_NORMAL = 0,
+        SGW_XY = 1<<0,
+        SGW_WH = 1<<1,
+        SGW_XYWH = SGW_XY|SGW_WH,
 
-    SGW_STATES=3<<8,
-        SGW_MUTABLE=1<<8,
-        SGW_FIXED=1<<9,
+    SGW_STATES = 0xFF<<8,
+        SGW_MUTABLE = 1<<8,
+        SGW_FIXED = 1<<9,
 
 };
 

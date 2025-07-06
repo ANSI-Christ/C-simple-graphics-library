@@ -119,10 +119,14 @@ void sgw_close(SGW * const _w){
     }
 }
 
-static void _sgw_rect(sgw_x11 * const w){
-    Window root; unsigned int size,border;
-    XGetGeometry(w->display,w->window,&root,&w->w.rectangle.x,&w->w.rectangle.y,&w->w.rectangle.w,&w->w.rectangle.h,&border,&size);
-    size=(w->w.rectangle.w-=border>>1)*(w->w.rectangle.h-=border>>1);
+static void _sgw_size(sgw_x11 * const w){
+    Window root; unsigned int border, depth;
+    XGetGeometry(w->display,w->window,&root,&w->w.rectangle.x,&w->w.rectangle.y,&w->w.rectangle.w,&w->w.rectangle.h,&border,&depth);
+    border>>=1; w->w.rectangle.w-=border; w->w.rectangle.h-=border;
+}
+
+static void _sgw_resize(sgw_x11 * const w){
+    const unsigned int size=w->w.rectangle.w*w->w.rectangle.h;
     if(size>w->color_max){
         w->color_max=size;
         w->w.deallocator(w->w.pixel);
@@ -145,7 +149,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         memset(w,0,sizeof(*w));
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
-        w->w.mode=SGW_XYWH|SGW_MUTABLE;
+        w->w.mode=SGW_NORMAL|SGW_MUTABLE;
         w->ctrl[0]=w->ctrl[1]=-1;
         if(pipe(w->ctrl))
             break;
@@ -166,9 +170,10 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
             break;
         XSetWMProtocols(w->display,w->window,(Atom*)&w->atom,sizeof(w->atom)/sizeof(Atom));
         XSelectInput(w->display,w->window,ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
-        XMapWindow(w->display,w->window);
+        XMapRaised(w->display,w->window);
         XFlush(w->display);
-        _sgw_rect(w);
+        _sgw_size(w);
+        _sgw_resize(w);
         return &w->w;
     }
     sgw_close(&w->w);
@@ -194,43 +199,36 @@ void sgw_render(SGW * const _w){
 
 void sgw_rect(SGW * const _w,const enum SGW mode,...){
     SGW_UNCONST(w,_w);
-    va_list l;
-    int xywh=0, x=_w->rectangle.x, y=_w->rectangle.y;
-    unsigned int v=_w->rectangle.w, h=_w->rectangle.h;
+    XSizeHints hints={.flags=PMinSize|PMaxSize};
+    int flags=0;
 
     if( (mode & SGW_MUTABLE) && !(w->w.mode & SGW_MUTABLE) ){
-        XSizeHints sz={.flags=PMinSize|PMaxSize, .min_width=10, .min_height=2, .max_width=~(1<<(sizeof(sz.max_width)*8-1)), .max_height=~(1<<(sizeof(sz.max_width)*8-1))};
-        XSetWMNormalHints(w->display,w->window,&sz);
-        XMoveWindow(w->display,w->window,x,y);
+        flags|=1;
+        hints.min_width=10; hints.min_height=2; hints.max_width=hints.max_height=~(1<<(sizeof(hints.max_width)*8-1));
         w->w.mode=(w->w.mode & SGW_MODES) | SGW_MUTABLE;
     }
-    switch(mode & SGW_MODES){
-        case SGW_XY:   va_start(l,mode); xywh=1; x=va_arg(l,int); y=va_arg(l,int); break;
-        case SGW_WH:   va_start(l,mode); xywh=1; v=va_arg(l,unsigned int); h=va_arg(l,unsigned int); break;
-        case SGW_XYWH: va_start(l,mode); xywh=1; x=va_arg(l,int); y=va_arg(l,int); v=va_arg(l,unsigned int); h=va_arg(l,unsigned int); break;
-        case SGW_MAX:  xywh=1; x=0; y=0; v=DisplayWidth(w->display,w->screen); h=DisplayHeight(w->display,w->screen); break;
-        case SGW_TRAY:
-            w->w.mode=SGW_TRAY | (w->w.mode & SGW_STATES);
-            XIconifyWindow(w->display,w->window,w->screen);
-            break;
-        case SGW_FULLSCREEN:
-            break;
-//            if(w->w.mode==SGW_FULLSCREEN) return;
-//            w->w.mode=SGW_FULLSCREEN | (w->w.mode & SGW_STATES); return;
-        default: break;
+
+    if( (mode & SGW_MODES) && (w->w.mode & SGW_MUTABLE) ){
+        if( (mode & SGW_MODES)<=SGW_XYWH ){
+            va_list l;
+            va_start(l,mode);
+            if(mode & SGW_XY){ w->w.rectangle.x=va_arg(l,int); w->w.rectangle.y=va_arg(l,int); }
+            if(mode & SGW_WH){ w->w.rectangle.w=va_arg(l,unsigned int); w->w.rectangle.h=va_arg(l,unsigned int); }
+            va_end(l);
+            flags|=2|4;
+            w->w.mode=SGW_NORMAL | (w->w.mode & SGW_STATES);
+        }
     }
-    if(xywh && (w->w.mode & SGW_MUTABLE)){
-        va_end(l);
-        w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES);
-        XMoveResizeWindow(w->display,w->window,x,y,v,h);
-        _sgw_rect(w);
-    }
+
     if( (mode & SGW_FIXED) && !(w->w.mode & SGW_FIXED) ){
-        XSizeHints sz={.flags=PMinSize|PMaxSize, .min_width=v, .min_height=h, .max_width=v, .max_height=h};
-        XSetWMNormalHints(w->display,w->window,&sz);
-        XMoveWindow(w->display,w->window,x,y);
+        flags|=1;
+        hints.min_width=hints.max_width=w->w.rectangle.w; hints.min_height=hints.max_height=w->w.rectangle.h;
         w->w.mode=(w->w.mode & SGW_MODES) | SGW_FIXED;
     }
+
+    if(flags & 1) XSetWMNormalHints(w->display,w->window,&hints);
+    if(flags & (2|1)) XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
+    if(flags & 4){ _sgw_size(w); _sgw_resize(w); }
 }
 
 static void _sge_unrepeat(sgw_x11 * const w,XEvent *e){
@@ -284,7 +282,13 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                     return SGE_CURSOR;
                 case ConfigureNotify:
                     _sge_unrepeat(w,message);
-                    _sgw_rect(w);
+                    if(message->xconfigure.send_event) break;
+                    message->xconfigure.border_width>>=1;
+                    w->w.rectangle.x=message->xconfigure.x;
+                    w->w.rectangle.y=message->xconfigure.y;
+                    w->w.rectangle.w=message->xconfigure.width-message->xconfigure.border_width;
+                    w->w.rectangle.h=message->xconfigure.height-message->xconfigure.border_width;
+                    _sgw_resize(w);
                     return SGE_RECTANGLE;
                 case KeyPress:
                     if(_sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key))
