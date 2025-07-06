@@ -284,10 +284,9 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                     _sge_unrepeat(w,message);
                     if(message->xconfigure.send_event) break;
                     message->xconfigure.border_width>>=1;
-                    w->w.rectangle.x=message->xconfigure.x;
-                    w->w.rectangle.y=message->xconfigure.y;
-                    w->w.rectangle.w=message->xconfigure.width-message->xconfigure.border_width;
-                    w->w.rectangle.h=message->xconfigure.height-message->xconfigure.border_width;
+                    {const int tmp[4]={message->xconfigure.x,message->xconfigure.y,message->xconfigure.width-message->xconfigure.border_width,message->xconfigure.height-message->xconfigure.border_width};
+                    if(!memcmp(&w->w.rectangle,tmp,sizeof(_w->rectangle))) break;
+                    memcpy(&w->w.rectangle,tmp,sizeof(_w->rectangle));}
                     _sgw_resize(w);
                     return SGE_RECTANGLE;
                 case KeyPress:
