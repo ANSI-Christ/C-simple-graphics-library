@@ -34,12 +34,12 @@ typedef enum{
     SGK_ESC    = 0x1B,
     SGK_SPACE  = ' ',
     SGK_DEL    = 0x7F,
-    SGK_LB     = 1<<8,
-    SGK_RB     = 1<<9,
-    SGK_MB     = 1<<10,
-    SGK_CTRL   = 1<<11,
-    SGK_ALT    = 1<<12,
-    SGK_SHIFT  = 1<<13,
+    SGK_LB     = 1<<16,
+    SGK_RB     = 1<<17,
+    SGK_MB     = 1<<18,
+    SGK_CTRL   = 1<<19,
+    SGK_ALT    = 1<<20,
+    SGK_SHIFT  = 1<<21,
 }SGK;
 
 #endif /* SG_KEY_H */

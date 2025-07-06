@@ -60,19 +60,19 @@ static void _sgc_convert(const SGC *c32,const unsigned int size,const unsigned c
     }
 }
 
-static char _sgk_press(SGK key, SGK * const keys, SGK * const pressed){
+static char _sgk_press(SGK key,struct _sgw * const w,SGE * const e){// SGK * const keys, SGK * const pressed){
     if(!key) return 0;
-    if(key>0xff) *keys|=key;
-    else *keys=(*keys&~0xff)|key;
-    *pressed=*keys;
+    if(key>0xffff) w->keys|=key;
+    else w->keys=(w->keys&~0xffff)|key;
+    e->key=w->keys;
     return 1;
 }
 
-static int _sgk_release(SGK key, SGK * const keys, SGK * const released){
+static int _sgk_release(SGK key,struct _sgw * const w,SGE * const e){// SGK * const keys, SGK * const released){
     if(!key) return 0;
-    *released=*keys;
-    if(key>0xff) *keys^=key;
-    else *keys&=~0xff;
+    e->key=w->keys;
+    if(key>0xffff) w->keys^=key;
+    else w->keys&=~0xffff;
     return 1;
 }
 

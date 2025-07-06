@@ -11,14 +11,14 @@
 #include "sgk.h"
 
 enum SGE{
-    SGE_NONE=0,
-    SGE_CLOSE,
-    SGE_ASYNC,     /* SGE.async */
-    SGE_RECTANGLE, /* SGW.rectangle */
-    SGE_PRESS,     /* SGE.key */
-    SGE_RELEASE,   /* SGE.key */
-    SGE_CURSOR,    /* SGW.cursor */
-    SGE_SCROLL,    /* SGE.scroll */
+    SGE_NONE = 0,
+    SGE_CLOSE      = 1<<0,
+    SGE_ASYNC      = 1<<1, /* SGE.async */
+    SGE_RECTANGLE  = 1<<2, /* SGW.rectangle */
+    SGE_PRESS      = 1<<3, /* SGE.key */
+    SGE_RELEASE    = 1<<4, /* SGE.key */
+    SGE_CURSOR     = 1<<5, /* SGW.cursor */
+    SGE_SCROLL     = 1<<6, /* SGE.scroll */
 };
 
 
@@ -29,8 +29,8 @@ typedef union{
     SGK key;
 
     enum{
-        SGE_SCROLL_UP = -1,
-        SGE_SCROLL_DOWN = 1
+        SGE_SCROLL_UP    = -1,
+        SGE_SCROLL_DOWN  = 1
     }scroll;
 
 }SGE;
@@ -39,14 +39,13 @@ typedef union{
 enum SGW{
 
     SGW_MODES = 0xFF,
-        SGW_NORMAL = 0,
-        SGW_XY = 1<<0,
-        SGW_WH = 1<<1,
-        SGW_XYWH = SGW_XY|SGW_WH,
+        SGW_XY    = 1<<0,
+        SGW_WH    = 1<<1,
+        SGW_XYWH  = SGW_XY|SGW_WH,
 
     SGW_STATES = 0xFF<<8,
-        SGW_MUTABLE = 1<<8,
-        SGW_FIXED = 1<<9,
+        SGW_MUTABLE  = 1<<8,
+        SGW_FIXED    = 1<<9,
 
 };
 

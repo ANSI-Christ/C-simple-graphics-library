@@ -149,7 +149,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         memset(w,0,sizeof(*w));
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
-        w->w.mode=SGW_NORMAL|SGW_MUTABLE;
+        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         w->ctrl[0]=w->ctrl[1]=-1;
         if(pipe(w->ctrl))
             break;
@@ -216,7 +216,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
             if(mode & SGW_WH){ w->w.rectangle.w=va_arg(l,unsigned int); w->w.rectangle.h=va_arg(l,unsigned int); }
             va_end(l);
             flags|=2|4;
-            w->w.mode=SGW_NORMAL | (w->w.mode & SGW_STATES);
+            w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES);
         }
     }
 
@@ -290,26 +290,26 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                     _sgw_resize(w);
                     return SGE_RECTANGLE;
                 case KeyPress:
-                    if(_sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key))
+                    if(_sgk_press(_sgk_keyboard(message),&w->w,e))
                         return SGE_PRESS;
                     break;
                 case KeyRelease:
-                    if(_sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key))
+                    if(_sgk_release(_sgk_keyboard(message),&w->w,e))
                         return SGE_RELEASE;
                     break;
                 case ButtonPress:
                     switch(message->xbutton.button){
-                        case Button1: if(_sgk_press(SGK_LB,&w->w.keys,&e->key)) return SGE_PRESS; break;
-                        case Button2: if(_sgk_press(SGK_MB,&w->w.keys,&e->key)) return SGE_PRESS; break;
-                        case Button3: if(_sgk_press(SGK_RB,&w->w.keys,&e->key)) return SGE_PRESS; break;
+                        case Button1: if(_sgk_press(SGK_LB,&w->w,e)) return SGE_PRESS; break;
+                        case Button2: if(_sgk_press(SGK_MB,&w->w,e)) return SGE_PRESS; break;
+                        case Button3: if(_sgk_press(SGK_RB,&w->w,e)) return SGE_PRESS; break;
                         case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
                         case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
                     } break;
                 case ButtonRelease:
                     switch(message->xbutton.button){
-                        case Button1: if(_sgk_release(SGK_LB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
-                        case Button2: if(_sgk_release(SGK_MB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
-                        case Button3: if(_sgk_release(SGK_RB,&w->w.keys,&e->key)) return SGE_RELEASE; break;
+                        case Button1: if(_sgk_release(SGK_LB,&w->w,e)) return SGE_RELEASE; break;
+                        case Button2: if(_sgk_release(SGK_MB,&w->w,e)) return SGE_RELEASE; break;
+                        case Button3: if(_sgk_release(SGK_RB,&w->w,e)) return SGE_RELEASE; break;
                         case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
                         case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
                     }

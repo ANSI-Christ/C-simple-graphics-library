@@ -154,7 +154,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         memset(w,0,sizeof(*w));
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
-        w->w.mode=SGW_NORMAL|SGW_MUTABLE;
+        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         pthread_once(&_sgw_once,_sgw_class_init);
         if( !(w->window=CreateWindowA(SGW_CLASS_NAME," ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
             break;
@@ -215,7 +215,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
             va_end(l);
 
             flags|=2;
-            w->w.mode=SGW_NORMAL | (w->w.mode & SGW_STATES);
+            w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES);
         }
     }
 
@@ -282,16 +282,16 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
             case WM_MOUSEWHEEL:
                 e->scroll=(GET_WHEEL_DELTA_WPARAM(message->wParam)>0 ? SGE_SCROLL_UP : SGE_SCROLL_DOWN);
                 _SGW_RETURN(SGE_SCROLL);
-            case WM_LBUTTONDOWN: if(_sgk_press(SGK_LB,&w->w.keys,&e->key))   _SGW_RETURN(SGE_PRESS);   break;
-            case WM_LBUTTONUP:   if(_sgk_release(SGK_LB,&w->w.keys,&e->key)) _SGW_RETURN(SGE_RELEASE); break;
-            case WM_RBUTTONDOWN: if(_sgk_press(SGK_RB,&w->w.keys,&e->key))   _SGW_RETURN(SGE_PRESS);   break;
-            case WM_RBUTTONUP:   if(_sgk_release(SGK_RB,&w->w.keys,&e->key)) _SGW_RETURN(SGE_RELEASE); break;
-            case WM_MBUTTONDOWN: if(_sgk_press(SGK_MB,&w->w.keys,&e->key))   _SGW_RETURN(SGE_PRESS);   break;
-            case WM_MBUTTONUP:   if(_sgk_release(SGK_MB,&w->w.keys,&e->key)) _SGW_RETURN(SGE_RELEASE); break;
+            case WM_LBUTTONDOWN: if(_sgk_press(SGK_LB,&w->w,e))   _SGW_RETURN(SGE_PRESS);   break;
+            case WM_LBUTTONUP:   if(_sgk_release(SGK_LB,&w->w,e)) _SGW_RETURN(SGE_RELEASE); break;
+            case WM_RBUTTONDOWN: if(_sgk_press(SGK_RB,&w->w,e))   _SGW_RETURN(SGE_PRESS);   break;
+            case WM_RBUTTONUP:   if(_sgk_release(SGK_RB,&w->w,e)) _SGW_RETURN(SGE_RELEASE); break;
+            case WM_MBUTTONDOWN: if(_sgk_press(SGK_MB,&w->w,e))   _SGW_RETURN(SGE_PRESS);   break;
+            case WM_MBUTTONUP:   if(_sgk_release(SGK_MB,&w->w,e)) _SGW_RETURN(SGE_RELEASE); break;
             case WM_SYSKEYDOWN:
-            case WM_KEYDOWN:     if(_sgk_press(_sgk_keyboard(message),&w->w.keys,&e->key)) _SGW_RETURN(SGE_PRESS); break;
+            case WM_KEYDOWN:     if(_sgk_press(_sgk_keyboard(message),&w->w,e)) _SGW_RETURN(SGE_PRESS); break;
             case WM_SYSKEYUP:
-            case WM_KEYUP:       if(_sgk_release(_sgk_keyboard(message),&w->w.keys,&e->key)) _SGW_RETURN(SGE_RELEASE); break;
+            case WM_KEYUP:       if(_sgk_release(_sgk_keyboard(message),&w->w,e)) _SGW_RETURN(SGE_RELEASE); break;
         }
     }
     return SGE_NONE;
