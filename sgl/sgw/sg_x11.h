@@ -241,7 +241,7 @@ static void _sge_unrepeat(sgw_x11 * const w,XEvent *e){
     }
 }
 
-static char _sge_wait(const sgw_x11 * const w,const int t){
+static int _sge_wait(const sgw_x11 * const w,const int t){
     struct timeval tm[1]={{t/1000,(t%1000)*1000}};
     fd_set set[1]; FD_ZERO(set); FD_SET(w->xconn,set); FD_SET(w->ctrl[0],set);
     switch(select((w->xconn>w->ctrl[0]?w->xconn:w->ctrl[0])+1,set,NULL,NULL,t<0 ? NULL : tm)){
@@ -255,7 +255,7 @@ static char _sge_wait(const sgw_x11 * const w,const int t){
 
 enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
     SGW_UNCONST(w,_w);
-    char var;
+    int var;
     #ifdef FIONREAD
     if(!ioctl(w->ctrl[0],FIONREAD,&var) && var>0) var=1; else
     #endif
