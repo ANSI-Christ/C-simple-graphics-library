@@ -6,6 +6,9 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <error.h>
+#include <errno.h>
+#include <time.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -231,6 +234,16 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     if(flags & 4){ _sgw_size(w); _sgw_resize(w); }
 }
 
+static void _sgw_timespec_change(struct timespec * const t,const long sec,const long nanosec){
+    t->tv_sec+=sec;
+    t->tv_nsec+=nanosec;
+    t->tv_sec+=t->tv_nsec/1000000000;
+    if( (t->tv_nsec%=1000000000)<0){
+        t->tv_nsec += 1000000000;
+        --t->tv_sec;
+    }
+}
+
 static void _sge_unrepeat(sgw_x11 * const w,XEvent *e){
     XEvent next[1];
     while(XPending(w->display)>0){
@@ -241,10 +254,14 @@ static void _sge_unrepeat(sgw_x11 * const w,XEvent *e){
     }
 }
 
-static int _sge_wait(const sgw_x11 * const w,const int t){
-    struct timeval tm[1]={{t/1000,(t%1000)*1000}};
-    fd_set set[1]; FD_ZERO(set); FD_SET(w->xconn,set); FD_SET(w->ctrl[0],set);
-    switch(select((w->xconn>w->ctrl[0]?w->xconn:w->ctrl[0])+1,set,NULL,NULL,t<0 ? NULL : tm)){
+static int _sge_wait(const sgw_x11 * const w,struct timeval * const t){
+    fd_set set[1];
+    #ifdef FIONREAD
+    int var; if(!ioctl(w->ctrl[0],FIONREAD,&var) && var>0) return 1;
+    #endif
+    if(XPending(w->display)>0) return 2;
+    FD_ZERO(set); FD_SET(w->xconn,set); FD_SET(w->ctrl[0],set);
+    switch(select((w->xconn>w->ctrl[0]?w->xconn:w->ctrl[0])+1,set,NULL,NULL,t)){
         case -1: return -1;
         case 0: return 0;
     }
@@ -255,67 +272,85 @@ static int _sge_wait(const sgw_x11 * const w,const int t){
 
 enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
     SGW_UNCONST(w,_w);
-    int var;
-    #ifdef FIONREAD
-    if(!ioctl(w->ctrl[0],FIONREAD,&var) && var>0) var=1; else
-    #endif
-    if(XPending(w->display)>0) var=2;
-    else var=_sge_wait(w,t);
-    switch(var){
-        case -1: return SGE_CLOSE;
-        case 1:{
-            const int bytes=read(w->ctrl[0],&e->async,sizeof(e->async));
-            return SGE_ASYNC; if(bytes){} break;
-        }
-        case 2: do{
-            XEvent message[1];
-            XNextEvent(w->display,message);
-            switch(message->type){
-                case ClientMessage:
-                    if((Atom)(message->xclient.data.l[0])==w->atom.close)
-                        return SGE_CLOSE;
-                    break;
-                case MotionNotify:
-                    _sge_unrepeat(w,message);
-                    w->w.cursor.x=message->xmotion.x;
-                    w->w.cursor.y=message->xmotion.y;
-                    return SGE_CURSOR;
-                case ConfigureNotify:
-                    _sge_unrepeat(w,message);
-                    if(message->xconfigure.send_event) break;
-                    message->xconfigure.border_width>>=1;
-                    {const int tmp[4]={message->xconfigure.x,message->xconfigure.y,message->xconfigure.width-message->xconfigure.border_width,message->xconfigure.height-message->xconfigure.border_width};
-                    if(!memcmp(&w->w.rectangle,tmp,sizeof(_w->rectangle))) break;
-                    memcpy(&w->w.rectangle,tmp,sizeof(_w->rectangle));}
-                    _sgw_resize(w);
-                    return SGE_RECTANGLE;
-                case KeyPress:
-                    if(_sgk_press(_sgk_keyboard(message),&w->w,e))
-                        return SGE_PRESS;
-                    break;
-                case KeyRelease:
-                    if(_sgk_release(_sgk_keyboard(message),&w->w,e))
-                        return SGE_RELEASE;
-                    break;
-                case ButtonPress:
-                    switch(message->xbutton.button){
-                        case Button1: if(_sgk_press(SGK_LB,&w->w,e)) return SGE_PRESS; break;
-                        case Button2: if(_sgk_press(SGK_MB,&w->w,e)) return SGE_PRESS; break;
-                        case Button3: if(_sgk_press(SGK_RB,&w->w,e)) return SGE_PRESS; break;
-                        case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
-                        case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
-                    } break;
-                case ButtonRelease:
-                    switch(message->xbutton.button){
-                        case Button1: if(_sgk_release(SGK_LB,&w->w,e)) return SGE_RELEASE; break;
-                        case Button2: if(_sgk_release(SGK_MB,&w->w,e)) return SGE_RELEASE; break;
-                        case Button3: if(_sgk_release(SGK_RB,&w->w,e)) return SGE_RELEASE; break;
-                        case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
-                        case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
-                    }
-                    break;
+    struct timeval *tm,_tm;
+    struct timespec tm_stop;
+    XEvent message[1];
+    if(t<0){
+        tm=NULL;
+    }else{
+        tm=&_tm;
+        _tm.tv_sec=t/1000;
+        _tm.tv_usec=(t%1000)*1000;
+        clock_gettime(CLOCK_REALTIME,&tm_stop);
+        _sgw_timespec_change(&tm_stop,_tm.tv_sec,_tm.tv_usec*1000);
+    }
+    while(1){
+        switch(_sge_wait(w,tm)){
+            case -1: return (errno==EINTR) ? SGE_NONE : SGE_CLOSE;
+            case 1:{
+                const int bytes=read(w->ctrl[0],&e->async,sizeof(e->async));
+                return SGE_ASYNC; if(bytes){} break;
             }
-        }while(XPending(w->display)>0);
+            case 2: do{
+                XNextEvent(w->display,message);
+                switch(message->type){
+                    case ClientMessage:
+                        if((Atom)(message->xclient.data.l[0])==w->atom.close)
+                            return SGE_CLOSE;
+                        break;
+                    case MotionNotify:
+                        _sge_unrepeat(w,message);
+                        w->w.cursor.x=message->xmotion.x;
+                        w->w.cursor.y=message->xmotion.y;
+                        return SGE_CURSOR;
+                    case ConfigureNotify:
+                        _sge_unrepeat(w,message);
+                        if(message->xconfigure.send_event) break;
+                        message->xconfigure.border_width>>=1;
+                        {const int tmp[4]={message->xconfigure.x,message->xconfigure.y,message->xconfigure.width-message->xconfigure.border_width,message->xconfigure.height-message->xconfigure.border_width};
+                        if(!memcmp(&w->w.rectangle,tmp,sizeof(_w->rectangle))) break;
+                        memcpy(&w->w.rectangle,tmp,sizeof(_w->rectangle));}
+                        _sgw_resize(w);
+                        return SGE_RECTANGLE;
+                    case KeyPress:
+                        if(_sgk_press(_sgk_keyboard(message),&w->w,e))
+                            return SGE_PRESS;
+                        break;
+                    case KeyRelease:
+                        if(_sgk_release(_sgk_keyboard(message),&w->w,e))
+                            return SGE_RELEASE;
+                        break;
+                    case ButtonPress:
+                        switch(message->xbutton.button){
+                            case Button1: if(_sgk_press(SGK_LB,&w->w,e)) return SGE_PRESS; break;
+                            case Button2: if(_sgk_press(SGK_MB,&w->w,e)) return SGE_PRESS; break;
+                            case Button3: if(_sgk_press(SGK_RB,&w->w,e)) return SGE_PRESS; break;
+                            case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
+                            case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
+                        } break;
+                    case ButtonRelease:
+                        switch(message->xbutton.button){
+                            case Button1: if(_sgk_release(SGK_LB,&w->w,e)) return SGE_RELEASE; break;
+                            case Button2: if(_sgk_release(SGK_MB,&w->w,e)) return SGE_RELEASE; break;
+                            case Button3: if(_sgk_release(SGK_RB,&w->w,e)) return SGE_RELEASE; break;
+                            case Button4: e->scroll=SGE_SCROLL_UP; return SGE_SCROLL;
+                            case Button5: e->scroll=SGE_SCROLL_DOWN; return SGE_SCROLL;
+                        }
+                        break;
+                }
+            }while(XPending(w->display)>0);
+        }
+        if(t){
+            if(tm){
+                struct timespec tm_diff=tm_stop, tm_now;
+                clock_gettime(CLOCK_REALTIME,&tm_now);
+                _sgw_timespec_change(&tm_diff,-tm_now.tv_sec,-tm_now.tv_nsec);
+                if(tm_diff.tv_sec<0) break;
+                else if(tm_diff.tv_nsec<=0) break;
+                tm->tv_sec=tm_diff.tv_sec;
+                tm->tv_usec=tm_diff.tv_nsec/1000;
+            }
+        }else break;
     }
     return SGE_NONE;
 }
