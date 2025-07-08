@@ -6,15 +6,14 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <error.h>
 #include <errno.h>
-#include <time.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
 
+#include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 
@@ -239,12 +238,12 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     if(flags & 4){ _sgw_size(w); _sgw_resize(w); }
 }
 
-static void _sgw_timespec_change(const struct timespec * const src,const long sec,const long nanosec,struct timespec * const t){
+static void _sgw_time_change(const struct timeval * const src,const long sec,const long usec,struct timeval * const t){
     t->tv_sec=src->tv_sec+sec;
-    t->tv_nsec=src->tv_nsec+nanosec;
-    t->tv_sec+=t->tv_nsec/1000000000;
-    if( (t->tv_nsec%=1000000000)<0){
-        t->tv_nsec += 1000000000;
+    t->tv_usec=src->tv_usec+usec;
+    t->tv_sec+=t->tv_usec/1000000;
+    if( (t->tv_usec%=1000000)<0){
+        t->tv_usec += 1000000;
         --t->tv_sec;
     }
 }
@@ -277,8 +276,7 @@ static int _sge_wait(const sgw_x11 * const w,struct timeval * const t){
 
 enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
     SGW_UNCONST(w,_w);
-    struct timeval *tm,_tm;
-    struct timespec tm_stop;
+    struct timeval *tm,_tm, tm_stop;
     XEvent message[1];
     if(t<0){
         tm=NULL;
@@ -286,8 +284,8 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
         tm=&_tm;
         _tm.tv_sec=t/1000;
         _tm.tv_usec=(t%1000)*1000;
-        clock_gettime(CLOCK_REALTIME,&tm_stop);
-        _sgw_timespec_change(&tm_stop,_tm.tv_sec,_tm.tv_usec*1000,&tm_stop);
+        gettimeofday(&tm_stop,NULL);
+        _sgw_time_change(&tm_stop,_tm.tv_sec,_tm.tv_usec,&tm_stop);
     }
     while(1){
         switch(_sge_wait(w,tm)){
@@ -347,13 +345,11 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
         }
         if(t){
             if(tm){
-                struct timespec tm_diff;
-                clock_gettime(CLOCK_REALTIME,&tm_diff);
-                _sgw_timespec_change(&tm_diff,-tm_diff.tv_sec,-tm_diff.tv_nsec,&tm_diff);
-                if(tm_diff.tv_sec<0) break;
-                else if(tm_diff.tv_nsec<=0) break;
-                tm->tv_sec=tm_diff.tv_sec;
-                tm->tv_usec=tm_diff.tv_nsec/1000;
+                struct timeval tm_now;
+                gettimeofday(&tm_now,NULL);
+                _sgw_time_change(&tm_stop,-tm_now.tv_sec,-tm_now.tv_usec,tm);
+                if(tm->tv_sec<0) break;
+                else if(tm->tv_usec<=0) break;
             }
         }else break;
     }
