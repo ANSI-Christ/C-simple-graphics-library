@@ -93,7 +93,8 @@ typedef struct{
     unsigned int color_max;
     unsigned char color_bytes;
     struct{
-        Atom close;
+        Atom WM_PROTOCOLS;
+        Atom WM_DELETE_WINDOW;
     }atom;
 }sgw_x11;
 
@@ -166,12 +167,16 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
             default: w->color_bytes=1; break;
         }
         w->gc=DefaultGC(w->display,XDefaultScreen(w->display));
-        w->atom.close=XInternAtom(w->display,"WM_DELETE_WINDOW",0);
+
         if( !(w->window=XCreateSimpleWindow(w->display,RootWindow(w->display,w->screen),50,50,50,50,1,BlackPixel(w->display,w->screen),WhitePixel(w->display,w->screen))) )
             break;
         if( !(w->image=XCreateImage(w->display,DefaultVisual(w->display,w->screen),w->w.bitness,ZPixmap,0,NULL,50,50,XBitmapPad(w->display),0)) )
             break;
-        XSetWMProtocols(w->display,w->window,(Atom*)&w->atom,sizeof(w->atom)/sizeof(Atom));
+#define _SGW_ATOM(_1_) w->atom._1_=XInternAtom(w->display,#_1_,0)
+        _SGW_ATOM(WM_PROTOCOLS);
+        _SGW_ATOM(WM_DELETE_WINDOW);
+#undef _SGW_ATOM
+        XSetWMProtocols(w->display,w->window,&w->atom.WM_DELETE_WINDOW,1);
         XSelectInput(w->display,w->window,ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
         XMapRaised(w->display,w->window);
         XFlush(w->display);
@@ -295,7 +300,7 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                 XNextEvent(w->display,message);
                 switch(message->type){
                     case ClientMessage:
-                        if((Atom)(message->xclient.data.l[0])==w->atom.close)
+                        if(message->xclient.message_type==w->atom.WM_PROTOCOLS &&  (Atom)(message->xclient.data.l[0])==w->atom.WM_DELETE_WINDOW)
                             return SGE_CLOSE;
                         break;
                     case MotionNotify:
