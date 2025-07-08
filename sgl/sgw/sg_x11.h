@@ -146,9 +146,9 @@ static void _sgw_resize(sgw_x11 * const w){
 }
 
 SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
-    if(!allocator) allocator=malloc;
-    if(!deallocator) deallocator=free;
-{   SGW_UNCONST(w,allocator(sizeof(*w)));
+    if(!allocator){allocator=malloc;}
+    if(!deallocator){deallocator=free;}{
+    SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
         memset(w,0,sizeof(*w));
         w->w.allocator=allocator;
@@ -239,9 +239,9 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     if(flags & 4){ _sgw_size(w); _sgw_resize(w); }
 }
 
-static void _sgw_timespec_change(struct timespec * const t,const long sec,const long nanosec){
-    t->tv_sec+=sec;
-    t->tv_nsec+=nanosec;
+static void _sgw_timespec_change(const struct timespec * const src,const long sec,const long nanosec,struct timespec * const t){
+    t->tv_sec=src->tv_sec+sec;
+    t->tv_nsec=src->tv_nsec+nanosec;
     t->tv_sec+=t->tv_nsec/1000000000;
     if( (t->tv_nsec%=1000000000)<0){
         t->tv_nsec += 1000000000;
@@ -287,7 +287,7 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
         _tm.tv_sec=t/1000;
         _tm.tv_usec=(t%1000)*1000;
         clock_gettime(CLOCK_REALTIME,&tm_stop);
-        _sgw_timespec_change(&tm_stop,_tm.tv_sec,_tm.tv_usec*1000);
+        _sgw_timespec_change(&tm_stop,_tm.tv_sec,_tm.tv_usec*1000,&tm_stop);
     }
     while(1){
         switch(_sge_wait(w,tm)){
@@ -347,9 +347,9 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
         }
         if(t){
             if(tm){
-                struct timespec tm_diff=tm_stop, tm_now;
-                clock_gettime(CLOCK_REALTIME,&tm_now);
-                _sgw_timespec_change(&tm_diff,-tm_now.tv_sec,-tm_now.tv_nsec);
+                struct timespec tm_diff;
+                clock_gettime(CLOCK_REALTIME,&tm_diff);
+                _sgw_timespec_change(&tm_diff,-tm_diff.tv_sec,-tm_diff.tv_nsec,&tm_diff);
                 if(tm_diff.tv_sec<0) break;
                 else if(tm_diff.tv_nsec<=0) break;
                 tm->tv_sec=tm_diff.tv_sec;
