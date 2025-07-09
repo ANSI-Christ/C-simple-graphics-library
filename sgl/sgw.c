@@ -3,9 +3,12 @@
 /* Copyright (c) 2024 ANSI-Christ  */
 /* * * * * * * * * * * * * * * * * */
 
-#include <stdarg.h>
-#include <string.h>
 #include "sgw.h"
+
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
 
 SGC *sgw_pixel(SGW * const w,const unsigned int x,const unsigned int y){
     return w->pixel+y*w->rectangle.w+x;

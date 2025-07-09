@@ -3,7 +3,6 @@
 /* Copyright (c) 2024 ANSI-Christ  */
 /* * * * * * * * * * * * * * * * * */
 
-#include <stdlib.h>
 #include <pthread.h>
 
 #include <windows.h>

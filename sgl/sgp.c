@@ -3,6 +3,8 @@
 /* Copyright (c) 2024 ANSI-Christ  */
 /* * * * * * * * * * * * * * * * * */
 
+#include "sgp.h"
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,7 +12,6 @@
 #include <errno.h>
 #include <math.h>
 
-#include "sgp.h"
 #include "./sgf/sgf_5x11.c"
 
 #define SG_SET(_t_,_l_,_r_) do{ const union{const void *_;_t_ *t;}_1_={(const void*)&(_l_)}; *_1_.t=(_r_); }while(0)
