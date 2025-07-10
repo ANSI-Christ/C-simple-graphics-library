@@ -14,10 +14,11 @@ typedef void* OBJC_CLASS;
 
 extern Ivar class_getClassVariable(OBJC_CLASS,const char*);
 extern size_t ivar_getOffset(Ivar);
-extern OBJC_ID objc_msgSend_stret(void*,OBJC_ID, OBJC_SEL,...);
 extern OBJC_ID objc_msgSend(OBJC_ID, OBJC_SEL, ...);
 extern OBJC_SEL sel_registerName(const char *);
 extern OBJC_CLASS objc_getClass(const char *);
+
+static void * const _objc_msgSend_ptr=objc_msgSend;
 
 static int _objc_load_constant(OBJC_CLASS cls,const char * const name,size_t *const var){
     Ivar ivar=class_getClassVariable(cls,name);
@@ -27,7 +28,8 @@ static int _objc_load_constant(OBJC_CLASS cls,const char * const name,size_t *co
 }
 
 #define OBJC_GET(...)    objc_msgSend_stret(__VA_ARGS__)
-#define OBJC_MSG(...)    objc_msgSend(__VA_ARGS__)
+#define OBJC_MSGT(_t_,...)  ((_t_(*)(OBJC_ID, OBJC_SEL, ...))_objc_msgSend_ptr)(__VA_ARGS__)
+#define OBJC_MSG(...)    OBJC_MSGT(OBJC_ID,__VA_ARGS__)
 #define OBJC_VAR(...)    _objc_load_constant(__VA_ARGS__)
 #define OBJC_SEL(...)    sel_registerName(__VA_ARGS__)
 #define OBJC_CLASS(...)  objc_getClass(__VA_ARGS__)
@@ -270,10 +272,10 @@ void sgw_close(SGW * const _w){
 
 static void _sgw_size(sgw_objc * const w){
     OBJC_ID frame=OBJC_MSG(w->window, OBJC.sel.frame);
-    w->w.rectangle.x=(size_t)OBJC_MSG(frame, OBJC.sel.origin_x);
-    w->w.rectangle.y=(size_t)OBJC_MSG(frame, OBJC.sel.origin_x);
-    w->w.rectangle.w=(size_t)OBJC_MSG(frame, OBJC.sel.size_w);
-    w->w.rectangle.h=(size_t)OBJC_MSG(frame, OBJC.sel.size_h);
+    w->w.rectangle.x=OBJC_MSGT(CGFloat,frame, OBJC.sel.origin_x);
+    w->w.rectangle.y=OBJC_MSGT(CGFloat,frame, OBJC.sel.origin_x);
+    w->w.rectangle.w=OBJC_MSGT(CGFloat,frame, OBJC.sel.size_w);
+    w->w.rectangle.h=OBJC_MSGT(CGFloat,frame, OBJC.sel.size_h);
 }
 
 static void _sgw_resize(sgw_objc * const w){
