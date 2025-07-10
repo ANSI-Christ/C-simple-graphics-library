@@ -3,41 +3,30 @@
 /* Copyright (c) 2024 ANSI-Christ  */
 /* * * * * * * * * * * * * * * * * */
 
-#include <limits.h>
+#include <stdio.h>
+
 //#include <objc/message.h>
 //#include <objc/runtime.h>
 
-typedef void* Ivar;
 typedef void* OBJC_ID;
 typedef void* OBJC_SEL;
 typedef void* OBJC_CLASS;
 
-extern Ivar class_getClassVariable(OBJC_CLASS,const char*);
-extern size_t ivar_getOffset(Ivar);
 extern OBJC_ID objc_msgSend(OBJC_ID, OBJC_SEL, ...);
 extern OBJC_SEL sel_registerName(const char *);
 extern OBJC_CLASS objc_getClass(const char *);
 
 static void * const _objc_msgSend_ptr=objc_msgSend;
 
-static int _objc_load_constant(OBJC_CLASS cls,const char * const name,size_t *const var){
-    Ivar ivar=class_getClassVariable(cls,name);
-    if(!ivar) return -1;
-    *var=*(size_t*)((const char*)cls+ivar_getOffset(ivar));
-    return 0;
-}
-
-#define OBJC_GET(...)    objc_msgSend_stret(__VA_ARGS__)
 #define OBJC_MSGT(_t_,...)  ((_t_(*)(OBJC_ID, OBJC_SEL, ...))_objc_msgSend_ptr)(__VA_ARGS__)
 #define OBJC_MSG(...)    OBJC_MSGT(OBJC_ID,__VA_ARGS__)
-#define OBJC_VAR(...)    _objc_load_constant(__VA_ARGS__)
 #define OBJC_SEL(...)    sel_registerName(__VA_ARGS__)
 #define OBJC_CLASS(...)  objc_getClass(__VA_ARGS__)
 
 //#include <AppKit/NSEvent.h>
 //#include <AppKit/NSWindow.h>
 
-
+#include <limits.h>
 #if SIZE_MAX==UINT_MAX
 typedef float CGFloat;
 #else
@@ -57,20 +46,56 @@ typedef struct{
     NSSize size;
 }NSRect;
 
+enum NSEventMask{
+    NSAnyEventMask = ULONG_MAX
+};
+
+enum NSEvent{
+    NSLeftMouseDown = 1,
+    NSLeftMouseUp = 2,
+    NSRightMouseDown = 3,
+    NSRightMouseUp = 4,
+    NSMouseMoved = 5,
+    NSKeyDown = 10,
+    NSKeyUp = 11,
+    NSApplicationDefined = 15,
+    NSScrollWheel = 22,
+    NSOtherMouseDown = 25,
+    NSOtherMouseUp = 26,
+};
+
+enum NSWindowMask{
+    NSBorderlessWindowMask = 0,
+    NSTitledWindowMask = 1<<0,
+    NSClosableWindowMask = 1<<1,
+    NSMiniaturizableWindowMask = 1<<2,
+    NSResizableWindowMask = 1<<3,
+    NSDefaultWindowMask = NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask
+};
+
+enum NSBackingStoreType{
+    NSBackingStoreRetained = 0,
+    NSBackingStoreNonretained = 1,
+    NSBackingStoreBuffered = 2
+};
+
+enum NSCustom{
+    NSClose=0,
+    NSMove=1,
+    NSResize=2,
+    NSAsync=3,
+};
+
 /* **********************************************************
 ********************************************************** */
 
 static struct{
 
     struct{
-      OBJC_ID
-        app,
-        loop;
-    }id;
-
-    struct{
       OBJC_SEL
+        regCls,
         alloc,
+        addMethod,
         init,
         string,
         title,
@@ -88,78 +113,74 @@ static struct{
         valueWithRect,
         nextEvent,
         sendEvent,
-        application,
         timeout,
         eventType,
-        uint;
+        uint,
+        getWindow,
+        setWindow,
+        setDelegate,
+        postEvent,
+        customEvent,
+        customType,
+        windowNumber;
     }sel;
 
     struct{
       OBJC_CLASS
+        Object,
         Window,
         Event,
+        Delegate,
         String,
         Value,
-        App,
         Date,
         Loop;
     }cls;
 
     struct{
-      size_t
-        NSBackingStoreBuffered,
-        NSBackingStoreRetained,
-        NSBackingStoreNonretained;
-    }buffering;
-
-    struct{
-      size_t
-        NSTitledWindowMask,
-        NSClosableWindowMask,
-        NSMiniaturizableWindowMask,
-        NSResizableWindowMask,
-        NSBorderlessWindowMask;
-    }style;
-
-    struct{
-      size_t
-        NSLeftMouseDownMask,
-        NSLeftMouseUpMask,
-        NSRightMouseDownMask,
-        NSRightMouseUpMask,
-        NSMouseMovedMask,
-        NSLeftMouseDraggedMask,
-        NSRightMouseDraggedMask,
-        NSKeyDownMask,
-        NSKeyUpMask,
-        NSFlagsChangedMask,
-        NSAnyEventMask;
-    }mask;
-
-    struct{
-      int
-        NSClose,
-        NSMove,
-        NSResize,
-        NSLeftMouseDown,
-        NSLeftMouseUp,
-        NSRightMouseDown,
-        NSRightMouseUp,
-        NSMouseMoved,
-        NSLeftMouseDragged,
-        NSKeyDown,
-        NSKeyUp;
-    }event;
+      OBJC_ID
+        pool,
+        app,
+        loop;
+    }id;
 
 }OBJC;
 
+static void OBJC_POST(OBJC_ID window,const int type,const void * const data){
+    const NSPoint p={0,0};
+    OBJC_ID event=OBJC_MSG(
+        OBJC.cls.Event,OBJC.sel.customEvent, NSApplicationDefined,
+        p,0,0, OBJC_MSG(window,OBJC.sel.windowNumber), NULL,0,0
+    );
+    OBJC_MSG(OBJC.id.app,OBJC.sel.postEvent,event,0);
+}
+
+static void _sgw_handler_close(OBJC_ID self){
+    OBJC_POST(OBJC_MSG(self,OBJC.sel.getWindow),NSClose,NULL);
+}
+
+static void _sgw_handler_move(OBJC_ID self){
+    OBJC_POST(OBJC_MSG(self,OBJC.sel.getWindow),NSMove,NULL);
+}
+
+static void _sgw_handler_resize(OBJC_ID self){
+    OBJC_POST(OBJC_MSG(self,OBJC.sel.getWindow),NSResize,NULL);
+}
+
+static void _sgw_atexit(void){
+    OBJC_MSG(OBJC.id.pool,OBJC_SEL("drain"));
+}
+
 static int _sgw_objc_init(void){
     static char init=-1;
+                                        return -1; // FIX ME
     if(!init) return 0;
 
     /* selectors */
     #define OBJC_LOAD(_sel_,_name_) if( !(OBJC.sel._sel_ = OBJC_SEL(_name_)) ) return -1
+    OBJC_LOAD(regCls,"registerClass");
     OBJC_LOAD(alloc,"alloc");
+    OBJC_LOAD(addMethod,"addInstanceMethod:imp:types:");
     OBJC_LOAD(init,"init");
     OBJC_LOAD(string,"stringWithUTF8String:");
     OBJC_LOAD(title,"setTitle:");
@@ -177,86 +198,52 @@ static int _sgw_objc_init(void){
     OBJC_LOAD(valueWithRect,"valueWithRect:");
     OBJC_LOAD(nextEvent,"nextEventMatchingMask:untilDate:inMode:dequeue:");
     OBJC_LOAD(sendEvent,"sendEvent:");
-    OBJC_LOAD(application,"sharedApplication");
     OBJC_LOAD(timeout,"dateWithTimeIntervalSinceNow:");
     OBJC_LOAD(eventType,"type");
     OBJC_LOAD(uint,"unsignedIntegerValue");
+    OBJC_LOAD(getWindow, "window");
+    OBJC_LOAD(setWindow, "setWindow:");
+    OBJC_LOAD(setDelegate, "setDelegate:");
+    OBJC_LOAD(postEvent, "postEvent:atStart:");
+    OBJC_LOAD(customType, "subtype");
+    OBJC_LOAD(customEvent, "otherEventWithType:location:modifierFlags:timestamp:windowNumber:context:subtype:data1:data2:");
+    OBJC_LOAD(windowNumber, "windowNumber");
     #undef OBJC_LOAD
+
+    OBJC.id.pool=OBJC_MSG(OBJC_MSG(OBJC_CLASS("NSAutoreleasePool"), OBJC.sel.alloc), OBJC.sel.init);
+    OBJC.id.app = OBJC_MSG(OBJC_CLASS("NSApplication"), OBJC_SEL("sharedApplication"));
+    OBJC.id.loop = OBJC_MSG(OBJC.cls.String, OBJC.sel.string, "kCFRunLoopDefaultMode");
+    atexit(_sgw_atexit);
 
     /* classes */
     #define OBJC_LOAD(_cls_,_name_) if( !(OBJC.cls._cls_ = OBJC_CLASS(_name_)) ) return -1
+    OBJC_LOAD(Object,"NSObject");
     OBJC_LOAD(Window,"NSWindow");
     OBJC_LOAD(String,"NSString");
     OBJC_LOAD(Value,"NSValue");
-    OBJC_LOAD(App,"NSApplication");
     OBJC_LOAD(Event,"NSEvent");
     OBJC_LOAD(Date,"NSDate");
     OBJC_LOAD(Loop,"NSRunLoop");
+    /* FIX ME delegate to handle window events 
+    OBJC.cls.Delegate=OBJC_MSG(OBJC.cls.Object,OBJC.sel.alloc);
+    OBJC_MSG(OBJC.cls.Delegate,OBJC_SEL("setName:"),"SGW_DELEGATE");
+    OBJC_MSG(OBJC.cls.Delegate,OBJC.sel.addMethod,OBJC_SEL("windowDidMove:"),_sgw_handler_move,"v@:@");
+    OBJC_MSG(OBJC.cls.Delegate,OBJC.sel.addMethod,OBJC_SEL("windowDidResize:"),_sgw_handler_resize,"v@:@");
+    OBJC_MSG(OBJC.cls.Delegate,OBJC.sel.addMethod,OBJC_SEL("windowDidClose:"),_sgw_handler_close,"v@:@");
+    OBJC_MSG(OBJC.cls.Delegate,OBJC.sel.regCls);
+    */
     #undef OBJC_LOAD
 
-    /* event masks */
-    #define OBJC_LOAD(_1_) do{size_t _2_; if(OBJC_VAR(OBJC.cls.Event,#_1_,&_2_)) return -1; OBJC.mask._1_=_2_; }while(0)
-
-    OBJC_LOAD(NSLeftMouseDownMask);
-    OBJC_LOAD(NSLeftMouseUpMask);
-    OBJC_LOAD(NSRightMouseDownMask);
-    OBJC_LOAD(NSRightMouseUpMask);
-    OBJC_LOAD(NSMouseMovedMask);
-    OBJC_LOAD(NSLeftMouseDraggedMask);
-    OBJC_LOAD(NSRightMouseDraggedMask);
-    OBJC_LOAD(NSKeyDownMask);
-    OBJC_LOAD(NSKeyUpMask);
-    OBJC_LOAD(NSFlagsChangedMask);
-    OBJC_LOAD(NSAnyEventMask);
-    #undef OBJC_LOAD
-
-    /* events */
-    #define OBJC_LOAD(_1_) do{size_t _2_; if(OBJC_VAR(OBJC.cls.Event,#_1_,&_2_)) return -1; OBJC.event._1_=_2_; }while(0)
-    OBJC_LOAD(NSClose);
-    OBJC_LOAD(NSMove);
-    OBJC_LOAD(NSResize);
-    OBJC_LOAD(NSLeftMouseDown);
-    OBJC_LOAD(NSLeftMouseUp);
-    OBJC_LOAD(NSRightMouseDown);
-    OBJC_LOAD(NSRightMouseUp);
-    OBJC_LOAD(NSMouseMoved);
-    OBJC_LOAD(NSLeftMouseDragged);
-    OBJC_LOAD(NSKeyDown);
-    OBJC_LOAD(NSKeyUp);
-    #undef OBJC_LOAD
-
-    /* window style */
-    #define OBJC_LOAD(_1_) do{size_t _2_; if(OBJC_VAR(OBJC.cls.Window,#_1_,&_2_)) return -1; OBJC.style._1_=_2_; }while(0)
-    OBJC_LOAD(NSTitledWindowMask);
-    OBJC_LOAD(NSClosableWindowMask);
-    OBJC_LOAD(NSMiniaturizableWindowMask);
-    OBJC_LOAD(NSResizableWindowMask);
-    OBJC_LOAD(NSBorderlessWindowMask);
-    OBJC_LOAD(NSTitledWindowMask);
-    #undef OBJC_LOAD
-
-    /* buffering */
-    #define OBJC_LOAD(_1_) do{size_t _2_; if(OBJC_VAR(OBJC.cls.Window,#_1_,&_2_)) return -1; OBJC.buffering._1_=_2_; }while(0)
-    OBJC_LOAD(NSBackingStoreBuffered);
-    OBJC_LOAD(NSBackingStoreRetained);
-    OBJC_LOAD(NSBackingStoreNonretained);
-    #undef OBJC_LOAD
-
-    /* id */
-    OBJC.id.app = OBJC_MSG(OBJC.cls.App, OBJC.sel.application);
+    OBJC.id.app = OBJC_MSG(OBJC_CLASS("NSApplication"), OBJC_SEL("sharedApplication"));
     OBJC.id.loop = OBJC_MSG(OBJC.cls.String, OBJC.sel.string, "kCFRunLoopDefaultMode");
 
     return (init=0);
 }
 
-static void OBJC_windowMoveResize(OBJC_ID window,const int x,const int y,const int w,const int h){
-    const NSRect rect={{x,y},{w,h}};
-    OBJC_MSG(window, OBJC.sel.setFrame, rect, 1);
-}
-
 typedef struct{
     struct _sgw w;
     OBJC_ID window;
+    OBJC_ID delegate;
     unsigned int color_max;
 }sgw_objc;
 
@@ -265,7 +252,10 @@ typedef struct{
 void sgw_close(SGW * const _w){
     SGW_UNCONST(w,_w);
     if(w){
-        if(w->window) OBJC_MSG(w->window, OBJC.sel.close);
+        if(w->window){
+            OBJC_MSG(w->window, OBJC.sel.setDelegate,NULL);
+            OBJC_MSG(w->window, OBJC.sel.close);
+        }
         _w->deallocator(w);
     }
 }
@@ -305,13 +295,16 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
         w->w.mode=SGW_XYWH|SGW_MUTABLE;
+        if( !(w->delegate=OBJC_MSG(OBJC_MSG(OBJC.cls.Delegate, OBJC.sel.alloc), OBJC.sel.init)) )
+            break;
         if( !(w->window=OBJC_MSG(
             OBJC_MSG(OBJC.cls.Window, OBJC.sel.alloc),
             OBJC.sel.initWithRect,
             OBJC_MSG(OBJC.cls.Value,OBJC.sel.valueWithRect, rect,
-            OBJC.style.NSTitledWindowMask | OBJC.style.NSClosableWindowMask | OBJC.style.NSMiniaturizableWindowMask,
-            OBJC.buffering.NSBackingStoreBuffered,0)))
+            NSDefaultWindowMask, NSBackingStoreBuffered,0)))
         )break;
+        OBJC_MSG(w->delegate,OBJC.sel.setWindow,w->window);
+        OBJC_MSG(w->window,OBJC.sel.setDelegate,w->delegate);
         OBJC_MSG(w->window, OBJC.sel.show, 0);
 /*        switch( (w->w.bitness=DefaultDepth(w->display,w->screen)) ){
             case 15: case 16: w->color_bytes=2; break;
@@ -341,6 +334,26 @@ void sgw_render(SGW * const _w){
 
 void sgw_rect(SGW * const _w,const enum SGW mode,...){
     SGW_UNCONST(w,_w);
+    int flags=0;
+
+    if( (mode & SGW_MODES) && (w->w.mode & SGW_MUTABLE) ){
+        if( (mode & SGW_MODES)<=SGW_XYWH ){
+            va_list l;
+            va_start(l,mode);
+            if(mode & SGW_XY){ w->w.rectangle.x=va_arg(l,int); w->w.rectangle.y=va_arg(l,int); }
+            if(mode & SGW_WH){ w->w.rectangle.w=va_arg(l,unsigned int); w->w.rectangle.h=va_arg(l,unsigned int); }
+            va_end(l);
+            flags|=1;
+            w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES);
+        }
+    }
+
+    if(flags & 1){
+        const NSRect rect={{w->w.rectangle.x,w->w.rectangle.y},{w->w.rectangle.w,w->w.rectangle.h}};
+        OBJC_MSG(w->window, OBJC.sel.setFrame, rect, 1);
+        _sgw_size(w);
+        _sgw_resize(w);
+    }
 }
 
 
@@ -348,49 +361,25 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e) {
     SGW_UNCONST(w,_w);
     OBJC_ID timeout=OBJC_MSG(OBJC.cls.Date, OBJC.sel.timeout, (t<0?1.0e10:t/1000.0));
     while(1){
-        OBJC_ID event=OBJC_MSG(OBJC.id.app, OBJC.sel.nextEvent, OBJC.mask.NSAnyEventMask, timeout, OBJC.id.loop,1);
-        if(!event){break;}{
-        const int type=(size_t)OBJC_MSG(OBJC_MSG(event, OBJC.sel.eventType), OBJC.sel.uint);
-
-        if(type==OBJC.event.NSClose){
-            return SGE_CLOSE;
+        OBJC_ID event=OBJC_MSG(OBJC.id.app, OBJC.sel.nextEvent, NSAnyEventMask, timeout, OBJC.id.loop,1);
+        if(!event) break;
+        if(OBJC_MSG(event,OBJC.sel.getWindow)!=w->window){
+            OBJC_MSG(OBJC.id.app, OBJC.sel.sendEvent, event);
+            continue;
         }
-        if(type==OBJC.event.NSMove){
-
+        switch(OBJC_MSGT(int,event, OBJC.sel.eventType)){
+            case NSApplicationDefined:
+                switch(OBJC_MSGT(short,event,OBJC.sel.customType)){
+                    case NSClose: return SGE_CLOSE;
+                    case NSMove: return SGE_CLOSE;
+                    case NSResize: return SGE_RECTANGLE;
+                    case NSAsync: return SGE_ASYNC;
+                    default: break;
+                }
+                break;
+            default: printf("usual message\n"); break;
         }
-        if(type==OBJC.event.NSResize){
-
-        }
-        if(type==OBJC.event.NSKeyDown){
-
-        }
-        if(type==OBJC.event.NSKeyUp){
-
-        }
-
-/*        switch((size_t)OBJC_MSG(OBJC_MSG(event, OBJC.sel.eventType), OBJC.sel.uint)){
-            case NSClose:
-                return SGE_CLOSE;
-            case NSMove:
-            case NSResize:
-                _sge_unrepeat();
-                OBJC_windowRect();
-                _sgw_resize(w);
-                return SGE_RECTANGLE;
-            case NSKeyDown: if(_sgk_press(_sgw_keyboard(key),w,e)) return SGE_PRESS; break;
-            //    event->key.keyCode = (int)OBJC_MSG(nsEvent, OBJC_SEL("keyCode"));
-            case NSKeyUp: if(_sgk_release(_sgw_keyboard(key),w,e)) return SGE_RELEASE; break;
-
-            case NSLeftMouseDown:{
-                OBJC_ID location = OBJC_MSG(nsEvent, OBJC_SEL("locationInWindow"));
-                event->mouse.x = (int)OBJC_MSG(location, OBJC_SEL("x"));
-                event->mouse.y = (int)OBJC_MSG(location, OBJC_SEL("y"));
-                event->mouse.button = 1;
-                return OBJC_WE_MOUSE_CLICK;
-            }
-            default: break;
-        }*/
-    }}
+    }
     return SGE_NONE;
 }
 
