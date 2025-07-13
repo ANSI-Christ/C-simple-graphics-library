@@ -19,7 +19,9 @@
     #endif
 #endif
 
-#include SG_IMPL
+#ifdef SG_IMPL
+    #include SG_IMPL
+#endif
 
 #undef _SG_INC
 #undef _SG_STR

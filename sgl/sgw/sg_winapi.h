@@ -290,6 +290,7 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
             case WM_KEYUP:       _SGW_RETURN_IF(_sgk_release(_sgk_keyboard(message),&w->w,e), SGE_RELEASE);
         }
     }
+    SetTimer(w->window,(UINT_PTR)1,t>0?t:USER_TIMER_MAXIMUM,0);
     return SGE_NONE;
 #undef _SGW_RETURN_IF
 }
