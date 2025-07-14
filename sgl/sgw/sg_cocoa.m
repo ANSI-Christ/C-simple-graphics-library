@@ -4,11 +4,15 @@
 /* * * * * * * * * * * * * * * * * */
 
 #import <Cocoa/Cocoa.h>
-#include "sgw.h"
+#include "../sgw.h"
 
-@interface ___CLASS_SGW_IMPL : NSWindow
+@interface ___CLASS_SGW_IMPL : NSObject{
+    NSWindow *_window;
+}
+
 - (id)initWithSGWdefault;
-+ (instancetype)sgw_open;
+
++ (___CLASS_SGW_IMPL*)sgw_open;
 - (void)sgw_close;
 - (void)sgw_async:(const void*)p;
 - (void)sgw_set_title:(const char *)title;
@@ -22,71 +26,101 @@
 
 @implementation ___CLASS_SGW_IMPL
 
-static id sgw_app;
-
-- (id)initWithSGWdefault {
+- (void)sgw_post:(short)subtype ptr:(void*)ptr {
     NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
-    
-    if(!sgw_app) sgw_app=[NSApplication sharedApplication];
-    
-    self=[super initWithContentRect:NSMakeRect(50, 50, 100, 100)
-                          styleMask:NSTitledWindowMask | NSClosableWindowMask | NSResizableWindowMask
-                            backing:NSBackingStoreBuffered
-                              defer:NO];
-    if (self) {
-        [self center];
-        [self setTitle:@" "];
-        [self setDelegate:self];
-        [self makeKeyAndOrderFront:nil];
 
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(windowDidMove:)
-                                                 name:NSWindowDidMoveNotification
-                                               object:self];
-
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(windowDidResize:)
-                                                 name:NSWindowDidResizeNotification
-                                               object:self];
-
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(windowDidResize:)
-                                                 name:NSWindowWillCloseNotification
-                                               object:self];
-    }
+    NSEvent *event = [[[NSEvent alloc] otherEventWithType:NSApplicationDefined
+                                      location:NSZeroPoint
+                                 modifierFlags:0
+                                     timestamp:0
+                                  windowNumber:[_window windowNumber]
+                                       context:ptr
+                                       subtype:subtype
+                                         data1:0
+                                         data2:0] autorelease];
+    [NSApp postEvent:event atStart:NO];
 
     [pool release];
+}
 
+- (void)_notification_print:(NSNotification *)notification {
+    NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
+//    NSLog(@"notification: %@", [notification name]);
+    [pool release];
+}
+
+
+- (void)windowDidMove:(NSNotification *)notification {
+    [self sgw_post:SGE_RECTANGLE ptr:nil];
+}
+
+- (void)windowDidResize:(NSNotification *)notification {
+    [self sgw_post:SGE_RECTANGLE ptr:nil];
+}
+
+- (BOOL)windowShouldClose:(id)sender {
+    [self sgw_post:SGE_CLOSE ptr:nil];
+    return NO;
+}
+
+- (id)initWithSGWdefault {
+    if(self){
+        NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
+        [NSApplication sharedApplication];
+        // policy regular
+
+        _window=[[NSWindow alloc] initWithContentRect:NSMakeRect(50, 50, 100, 100)
+              styleMask:NSTitledWindowMask | NSClosableWindowMask | NSResizableWindowMask
+                backing:NSBackingStoreBuffered
+                  defer:NO];
+        if (_window) {
+            [_window center];
+            [_window setTitle:@" "];
+            [_window makeKeyAndOrderFront:nil];
+
+            [[NSNotificationCenter defaultCenter] addObserver:self
+                                                selector:@selector(windowDidMove:)
+                                                name:@"WindowDidMove"
+                                                object:_window];
+            [[NSNotificationCenter defaultCenter] addObserver:self
+                                                selector:@selector(windowDidResize:)
+                                                name:@"WindowDidResize"
+                                                object:_window];
+            [[NSNotificationCenter defaultCenter] addObserver:self
+                                                selector:@selector(windowShallclose:)
+                                                name:@"WindowShallClose"
+                                                object:_window];
+            [[NSNotificationCenter defaultCenter] addObserver:self
+                                                selector:@selector(_notification_print:)
+                                                name:nil
+                                                object:_window];
+        }else{
+            /////
+        }
+        [pool release];
+    }
     return self;
 }
 
-+ (instancetype)sgw_open {
++ (___CLASS_SGW_IMPL*)sgw_open {
     return [[___CLASS_SGW_IMPL alloc] initWithSGWdefault];
 }
 
-/*
 - (void)dealloc {
-    #if !__has_feature(objc_arc)
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [_window close];
+    [_window release];
     [super dealloc];
-    #endif
 }
-*/
 
 - (void)sgw_close {
-    NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
-
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [self setDelegate:nil];
-    [self close];
     [self release];
-
-    [pool release];
 }
 
 - (void)sgw_set_title:(const char *)title {
     NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
 
-    [self setTitle:[[[NSString alloc] initWithUTF8String:title] autorelease] ];
+    [_window setTitle:[[[NSString alloc] initWithUTF8String:title] autorelease] ];
 
     [pool release];
 }
@@ -98,7 +132,7 @@ static id sgw_app;
 - (void)sgw_set_rect:(int)x y:(int)y w:(unsigned int)w h:(unsigned int)h {
     NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
 
-    [self setFrame:NSMakeRect(x, y, w, h) display:YES];
+    [_window setFrame:NSMakeRect(x, y, w, h) display:YES];
 
     [pool release];
 }
@@ -106,7 +140,7 @@ static id sgw_app;
 - (void)sgw_get_rect:(int *)x y:(int *)y w:(unsigned int *)w h:(unsigned int *)h {
     NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
 
-    NSRect frame = [self frame];
+    NSRect frame = [_window frame];
     *x = (int)frame.origin.x;
     *y = (int)frame.origin.y;
     *w = (int)frame.size.width;
@@ -123,79 +157,45 @@ static id sgw_app;
     
 }
 
-- (void)sgw_post:(short)subtype ptr:(void*)ptr {
+- (enum SGE)sgw_event:(int)t e:(SGE*)e{
     NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
+    double timeout;
 
-    NSEvent *event = [[[NSEvent alloc] otherEventWithType:NSApplicationDefined
-                                      location:NSZeroPoint
-                                 modifierFlags:0
-                                     timestamp:0
-                                  windowNumber:[self windowNumber]
-                                       context:ptr
-                                       subtype:subtype
-                                         data1:0
-                                         data2:0] autorelease];
-    [sgw_app postEvent:event atStart:NO];
-
-    [pool release];
-}
-
-- (void)sgw_windowDidMove:(NSNotification *)notification {
-    [self sgw_post:SGE_RECTANGLE ptr:nil];
-}
-
-- (void)sgw_windowDidResize:(NSNotification *)notification {
-    [self sgw_post:SGE_RECTANGLE ptr:nil];
-}
-
-- (void)sgw_windowWillClose:(NSNotification *)notification {
-    [self sgw_post:SGE_CLOSE ptr:nil];
-}
-
-- (enum SGE)sgw_event:(int)timeout e:(SGE*)e{
-    NSAutoreleasePool *pool=[[NSAutoreleasePool alloc] init];
+    if(t<0) timeout=[NSDate distantFuture];
+    else if(t>0) timeout=t/1000.0;
+    else timeout=[NSDate distantPast];
 
     NSDate *endDate = [[[NSDate alloc] initWithTimeIntervalSinceNow:timeout] autorelease];
     enum SGE result = SGE_NONE;
 
     while ([endDate timeIntervalSinceNow] > 0) {
-        int eventType; short eventSubtype;
-        NSAutoreleasePool *pool2=[[NSAutoreleasePool alloc] init];
-
-        NSEvent *event = [sgw_app nextEventMatchingMask:NSAnyEventMask
+        NSEvent *event = [[NSApp nextEventMatchingMask:NSAnyEventMask
                                                untilDate:endDate
                                                   inMode:NSDefaultRunLoopMode
-                                                 dequeue:YES];
-        if (!event){
-            [pool2 release];
-            break;
-        }
+                                                 dequeue:YES] retain];
+        if (!event) break;
 
-        if ([event window] != self) {
-            [sgw_app sendEvent:event];
-            [pool2 release];
+        [NSApp sendEvent:event];
+
+        if ([event window] != _window)
             continue;
-        }
-
-        eventType = [event type];
-        eventSubtype = [event subtype];
-
-        [pool2 release];
 
             // Обработка событий
-        switch (eventType) {
-            case NSKeyDown: 
+        switch ( [event type] ) {
+            case NSKeyDown:
                 result = SGE_PRESS;
                 goto exit_loop;
             case NSKeyUp:
                 result = SGE_RELEASE;
                 goto exit_loop;
             case NSApplicationDefined:
-                result = eventSubtype;
+                result = [event subtype];
                 goto exit_loop;
 
-            default: continue;
+            default: break;
         }
+
+        [event release];
     }
 
 exit_loop:
@@ -301,7 +301,7 @@ void sgw_async(SGW * const _w,const void * const p){
 
 void sgw_render(SGW * const _w){
     SGW_UNCONST(w,_w);
-    [w->window sgw_render:_w->pixel w:_w->rectangle.w h:_w->rectangle.h];
+//    [w->window sgw_render:_w->pixel w:_w->rectangle.w h:_w->rectangle.h];
     return; /*_sgc_convert(NULL,0,0,NULL);*/
 }
 
@@ -340,6 +340,22 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     }
 }
 
+static char _sgk_press(SGK key,struct _sgw * const w,SGE * const e){// SGK * const keys, SGK * const pressed){
+    if(!key) return 0;
+    if(key>0xffff) w->keys|=key;
+    else w->keys=(w->keys&~0xffff)|key;
+    e->key=w->keys;
+    return 1;
+}
+
+static int _sgk_release(SGK key,struct _sgw * const w,SGE * const e){// SGK * const keys, SGK * const released){
+    if(!key) return 0;
+    e->key=w->keys;
+    if(key>0xffff) w->keys^=key;
+    else w->keys&=~0xffff;
+    return 1;
+}
+
 enum SGE sgw_event(SGW * const _w,const int t,SGE * const e) {
     SGW_UNCONST(w,_w);
     const enum SGE event=[w->window sgw_event:t e:e];
@@ -352,5 +368,7 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e) {
     }
     return event;
 }
+
+
 
 #undef SGW_UNCONST
