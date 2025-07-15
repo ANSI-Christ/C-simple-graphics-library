@@ -97,6 +97,14 @@ typedef struct{
 
 #define SGW_UNCONST(_name_,_const_) sgw_x11 * const _name_ = (sgw_x11*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
 
+static char _sgw_check_window_type(const sgw_x11 * const w,const int t,XEvent * const e){
+    return XCheckTypedWindowEvent(w->display,w->window,t,e);
+}
+
+static char _sgw_check_window_mask(const sgw_x11 * const w,const long m,XEvent * const e){
+    return XCheckWindowEvent(w->display,w->window,m,e);
+}
+
 void sgw_close(SGW * const _w){
     SGW_UNCONST(w,_w);
     if(w){
@@ -179,7 +187,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         XFlush(w->display);
         _sgw_size(w);
         _sgw_resize(w);
-        { XEvent message[1]; XSync(w->display,0); while(XCheckWindowEvent(w->display,w->window,ExposureMask|StructureNotifyMask,message)){} }
+        { XEvent message[1]; XSync(w->display,0); while(_sgw_check_window_mask(w,ExposureMask|StructureNotifyMask,message)){} }
         return &w->w;
     }
     sgw_close(&w->w);
@@ -235,7 +243,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     if(flags & 1) XSetWMNormalHints(w->display,w->window,&hints);
     if(flags & (2|1)){
         XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
-        { XEvent message[1]; XSync(w->display,0); while(XCheckWindowEvent(w->display,w->window,ExposureMask|StructureNotifyMask,message)){} }
+        { XEvent message[1]; XSync(w->display,0); while(_sgw_check_window_mask(w,ExposureMask|StructureNotifyMask,message)){} }
     }
     if(flags & 4){ _sgw_size(w); _sgw_resize(w); }
 }
@@ -294,12 +302,12 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                             return SGE_CLOSE;
                         break;
                     case MotionNotify:
-                        while(XCheckTypedWindowEvent(w->display,w->window,MotionNotify,message)){}
+                        while(_sgw_check_window_type(w,MotionNotify,message)){}
                         w->w.cursor.x=message->xmotion.x;
                         w->w.cursor.y=message->xmotion.y;
                         return SGE_CURSOR;
                     case ConfigureNotify:
-                        while(XCheckTypedWindowEvent(w->display,w->window,ConfigureNotify,message)){}
+                        while(_sgw_check_window_type(w,ConfigureNotify,message)){}
                         message->xconfigure.border_width>>=1;
                         {const int tmp[4]={message->xconfigure.x,message->xconfigure.y,message->xconfigure.width-message->xconfigure.border_width,message->xconfigure.height-message->xconfigure.border_width};
                         if(!memcmp(&w->w.rectangle,tmp,sizeof(_w->rectangle))) break;
