@@ -179,6 +179,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         XFlush(w->display);
         _sgw_size(w);
         _sgw_resize(w);
+        { XEvent message[1]; XSync(w->display,0); while(XCheckWindowEvent(w->display,w->window,ExposureMask|StructureNotifyMask,message)){} }
         return &w->w;
     }
     sgw_close(&w->w);
@@ -232,7 +233,10 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     }
 
     if(flags & 1) XSetWMNormalHints(w->display,w->window,&hints);
-    if(flags & (2|1)) XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
+    if(flags & (2|1)){
+        XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
+        { XEvent message[1]; XSync(w->display,0); while(XCheckWindowEvent(w->display,w->window,ExposureMask|StructureNotifyMask,message)){} }
+    }
     if(flags & 4){ _sgw_size(w); _sgw_resize(w); }
 }
 
@@ -243,16 +247,6 @@ static void _sgw_time_change(const struct timeval * const src,const long sec,con
     if( (t->tv_usec%=1000000)<0){
         t->tv_usec += 1000000;
         --t->tv_sec;
-    }
-}
-
-static void _sge_unrepeat(sgw_x11 * const w,XEvent *e){
-    XEvent next[1];
-    while(XPending(w->display)>0){
-        XPeekEvent(w->display,next);
-        if(next->type!=e->type)
-            break;
-        XNextEvent(w->display,e);
     }
 }
 
@@ -300,13 +294,12 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                             return SGE_CLOSE;
                         break;
                     case MotionNotify:
-                        _sge_unrepeat(w,message);
+                        while(XCheckTypedWindowEvent(w->display,w->window,MotionNotify,message)){}
                         w->w.cursor.x=message->xmotion.x;
                         w->w.cursor.y=message->xmotion.y;
                         return SGE_CURSOR;
                     case ConfigureNotify:
-                        _sge_unrepeat(w,message);
-                        if(message->xconfigure.send_event) break;
+                        while(XCheckTypedWindowEvent(w->display,w->window,ConfigureNotify,message)){}
                         message->xconfigure.border_width>>=1;
                         {const int tmp[4]={message->xconfigure.x,message->xconfigure.y,message->xconfigure.width-message->xconfigure.border_width,message->xconfigure.height-message->xconfigure.border_width};
                         if(!memcmp(&w->w.rectangle,tmp,sizeof(_w->rectangle))) break;
