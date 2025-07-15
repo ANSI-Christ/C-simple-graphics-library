@@ -78,13 +78,16 @@ void sgm_bmp(const SGM *m,const char *name);
 void sgm_string(const SGM * const m,int x,int y,const void *c,const SGF *f,enum SGF_ALIGN a,const char *s);
 
 
-
+enum SGP{
+    SGP_COPY = 0,
+    SGP_ATTACH = 1
+};
 
 typedef struct{
-    SGM m;
+    SGM * const m;
     const double x1,y1;
     const double x2,y2;
-    const struct{double dx,dy;}_;
+    const struct{SGM m;double dx,dy;}_;
 }SGP;
 
 typedef struct{
@@ -92,7 +95,9 @@ typedef struct{
     unsigned int division;
 }SGA;
 
-void sgp_cfg(SGP *p,const SGM *m,unsigned char default_box);
+
+
+void sgp_cfg(SGP *p,enum SGP mode,const SGM *m,unsigned char default_box);
 void sgp_init(SGP *p,void *c,unsigned int w,unsigned int h,unsigned int color_bytes,unsigned char default_box);
 
 void sgp_set(const SGP *p,double x,double y,const void *c);

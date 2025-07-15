@@ -662,12 +662,16 @@ const char *sgf_at(const SGF *f,const enum SGF_ALIGN a,const char *s,const int x
 
 
 void sgp_init(SGP * const p,void * const c,const unsigned int w,const unsigned int h,const unsigned int color_bytes,const unsigned char default_box){
-    sgm_cfg(&p->m,c,w,h,color_bytes);
+    SG_SET(const void*,p->m,&p->_.m);
+    sgm_cfg(p->m,c,w,h,color_bytes);
     if(default_box) sgp_box(p,0,0,w,h);
 }
 
-void sgp_cfg(SGP * const p,const SGM * const m,const unsigned char default_box){
-    memcpy(p,m,sizeof(*m));
+void sgp_cfg(SGP * const p,const enum SGP mode,const SGM * const m,const unsigned char default_box){
+    switch(mode){
+        case SGP_COPY: SG_SET(const void*,p->m,&p->_.m); memcpy(p->m,m,sizeof(*m)); break;
+        case SGP_ATTACH: SG_SET(const void*,p->m,m); break;
+    }
     if(default_box) sgp_box(p,0,0,m->w,m->h);
 }
 
@@ -676,8 +680,8 @@ void sgp_box(SGP * const p,const double x1,const double y1,const double x2,const
     SG_SET(double,p->y1,y1);
     SG_SET(double,p->x2,x2);
     SG_SET(double,p->y2,y2);
-    SG_SET(double,p->_.dx,p->m.w/fabs(x1-x2));
-    SG_SET(double,p->_.dy,p->m.h/fabs(y1-y2));
+    SG_SET(double,p->_.dx,p->m->w/fabs(x1-x2));
+    SG_SET(double,p->_.dy,p->m->h/fabs(y1-y2));
 }
 
 static double _sgp_interpolation(const double x1,const double y1,const double x2,double y2,const double y3){
@@ -686,33 +690,33 @@ static double _sgp_interpolation(const double x1,const double y1,const double x2
 }
 
 void *sgp_at(const SGP * const p,const double x,const double y){
-    return sgm_at(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy);
+    return sgm_at(p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy);
 }
 
 void sgp_set(const SGP * const p,const double x,const double y,const void * const c){
     void *d=sgp_at(p,x,y);
-    if(d) memcpy(d,c,p->m.color_bytes);
+    if(d) memcpy(d,c,p->m->color_bytes);
 }
 
 void *sgp_pixel(const SGP * const p,const int pixel_x,const int pixel_y,double * const x,double * const y){
-    void * const c=sgm_at(&p->m,pixel_x,pixel_y);
+    void * const c=sgm_at(p->m,pixel_x,pixel_y);
     if(c){
-        if(x) *x=_sgp_interpolation(p->x1,0,p->x2,p->m.w,pixel_x);
-        if(y) *y=_sgp_interpolation(p->y1,0,p->y2,p->m.h,pixel_y);
+        if(x) *x=_sgp_interpolation(p->x1,0,p->x2,p->m->w,pixel_x);
+        if(y) *y=_sgp_interpolation(p->y1,0,p->y2,p->m->h,pixel_y);
         return c;
     } return NULL;
 }
 
 void sgp_string(const SGP * const p,const double x,const double y,const void * const c,const SGF *const f,const enum SGF_ALIGN a,const char * const s){
-    sgm_string(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,c,f,a,s);
+    sgm_string(p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,c,f,a,s);
 }
 
 void sgp_point(const SGP * const p,const double x,const double y,const unsigned int r,const void * const c){
-    sgm_round(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r,c);
+    sgm_round(p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r,c);
 }
 
 void sgp_line(const SGP * const p,const double x1,const double y1,const double x2,const double y2,const unsigned int t,const void * const c){
-    sgm_line(&p->m,(x1-p->x1)*p->_.dx,(y1-p->y1)*p->_.dy,(x2-p->x1)*p->_.dx,(y2-p->y1)*p->_.dy,t,c);
+    sgm_line(p->m,(x1-p->x1)*p->_.dx,(y1-p->y1)*p->_.dy,(x2-p->x1)*p->_.dx,(y2-p->y1)*p->_.dy,t,c);
 }
 
 static void _sgp_rect(const SGM * const m,const int x1,const int y1,const int x2,const int y2,const unsigned int t,const void * const c,const char has_t){
@@ -722,35 +726,35 @@ static void _sgp_rect(const SGM * const m,const int x1,const int y1,const int x2
 }
 
 void sgp_rect(const SGP * const p,const double x1,const double y1,const double x2,const double y2,const unsigned int t,const void * const c){
-    _sgp_rect(&p->m,(x1-p->x1)*p->_.dx,(y1-p->y1)*p->_.dy,(x2-p->x1)*p->_.dx,(y2-p->y1)*p->_.dy,t,c,1);
+    _sgp_rect(p->m,(x1-p->x1)*p->_.dx,(y1-p->y1)*p->_.dy,(x2-p->x1)*p->_.dx,(y2-p->y1)*p->_.dy,t,c,1);
 }
 
 void sgp_square(const SGP * const p,const double x1,const double y1,const double x2,const double y2,const void * const c){
-    _sgp_rect(&p->m,(x1-p->x1)*p->_.dx,(y1-p->y1)*p->_.dy,(x2-p->x1)*p->_.dx,(y2-p->y1)*p->_.dy,0,c,0);
+    _sgp_rect(p->m,(x1-p->x1)*p->_.dx,(y1-p->y1)*p->_.dy,(x2-p->x1)*p->_.dx,(y2-p->y1)*p->_.dy,0,c,0);
 }
 
 void sgp_round(const SGP * const p,const double x,const double y,const double r,const void * const c){
-    sgm_oval(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r*p->_.dx,r*p->_.dy,c);
+    sgm_oval(p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r*p->_.dx,r*p->_.dy,c);
 }
 
 void sgp_circle(const SGP * const p,const double x,const double y,const double r,const unsigned int t,const void * const c){
-    sgm_ellipse(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r*p->_.dx,r*p->_.dy,t,c);
+    sgm_ellipse(p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r*p->_.dx,r*p->_.dy,t,c);
 }
 
 void sgp_oval(const SGP * const p,const double x,const double y,const double rx,const double ry,const void * const c){
-    sgm_oval(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,rx*p->_.dx,ry*p->_.dy,c);
+    sgm_oval(p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,rx*p->_.dx,ry*p->_.dy,c);
 }
 
 void sgp_ellipse(const SGP * const p,const double x,const double y,const double rx,const double ry,const unsigned int t,const void * const c){
-    sgm_ellipse(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,rx*p->_.dx,ry*p->_.dy,t,c);
+    sgm_ellipse(p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,rx*p->_.dx,ry*p->_.dy,t,c);
 }
 
 void sgp_arc_cirlce(const SGP * const p,const double x,const double y,const double r,const unsigned int t,const double ang,const double rot,const void * const c){
-    sgm_arc_ellipse(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r*p->_.dx,r*p->_.dy,t,ang,rot,c);
+    sgm_arc_ellipse(p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,r*p->_.dx,r*p->_.dy,t,ang,rot,c);
 }
 
 void sgp_arc_ellipse(const SGP * const p,const double x,const double y,const double rx,const double ry,const unsigned int t,const double ang,const double rot,const void * const c){
-    sgm_arc_ellipse(&p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,rx*p->_.dx,ry*p->_.dy,t,ang,rot,c);
+    sgm_arc_ellipse(p->m,(x-p->x1)*p->_.dx,(y-p->y1)*p->_.dy,rx*p->_.dx,ry*p->_.dy,t,ang,rot,c);
 }
 
 /*
