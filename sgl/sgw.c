@@ -9,16 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-SGC *sgw_pixel(SGW * const w,const unsigned int x,const unsigned int y){
-    return w->pixel+y*w->rectangle.w+x;
-}
-
-void sgw_fill(SGW * const w,const SGC c){
-    unsigned int i=w->rectangle.w*w->rectangle.h;
-    while(i) w->pixel[--i]=c;
-}
-
 static void _sgc_convert(const SGC *c32,const unsigned int size,const unsigned char bits,void * const out){
     switch(bits){
         case 32: case 24:
@@ -77,6 +67,19 @@ static int _sgk_release(SGK key,struct _sgw * const w,SGE * const e){// SGK * co
     if(key>0xffff) w->keys^=key;
     else w->keys&=~0xffff;
     return 1;
+}
+
+
+SGC *sgw_pixel(SGW * const w,const unsigned int x,const unsigned int y){
+    return w->pixel+y*w->rectangle.w+x;
+    (void)_sgc_convert;
+    (void)_sgk_press;
+    (void)_sgk_release;
+}
+
+void sgw_fill(SGW * const w,const SGC c){
+    unsigned int i=w->rectangle.w*w->rectangle.h;
+    while(i) w->pixel[--i]=c;
 }
 
 #include "./sgw/sg_impl.h"

@@ -5,6 +5,9 @@
 
 #include "sgu.h"
 
+#include <stdlib.h>
+#include <string.h>
+
 #define SG_SET(_t_,_l_,_r_) do{ const union{const void *_;_t_ *t;}_1_={(const void*)&(_l_)}; *_1_.t=(_r_); }while(0)
 
 static void _sgu_link(CLASS _SGU_NODE *w,CLASS _SGU_NODE *p){
@@ -104,8 +107,12 @@ CLASS_COMPILE(SGU_WIDGET)(
     )
 )
 
+
+
 CLASS_COMPILE(SGU_UI)(
     constructor(allocator,deallocator)(
+        if(!allocator) allocator=malloc;
+        if(!deallocator) deallocator=free;
         if(!self){self=allocator(sizeof(*self)); memset(self,0,sizeof(*self)); (void)super;}
         SG_SET(void*,self->ui,self);
         SG_SET(void*,self->allocator,allocator);

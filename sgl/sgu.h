@@ -8,7 +8,7 @@
 
 #include "sgk.h"
 #include "sgp.h"
-#include "class.h"
+#include "./sgu/class.h"
 
 #include <stddef.h>
 
