@@ -118,7 +118,8 @@ CLASS_COMPILE(SGU_UI)(
     constructor(allocator,deallocator)(
         if(!allocator) allocator=malloc;
         if(!deallocator) deallocator=free;
-        if(!self){self=allocator(sizeof(*self)); memset(self,0,sizeof(*self)); (void)super;}
+        if(!self){self=allocator(sizeof(*self)); memset(self,0,sizeof(*self)); if(0)(void)super;}
+
         super(self,NULL);
         SG_SET(void*,self->allocator,allocator);
         SG_SET(void*,self->deallocator,deallocator);
