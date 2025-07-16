@@ -45,15 +45,15 @@ static void _sgu_reorder(CLASS _SGU_NODE *w){
 }
 
 
-static void *_sgu_find(CLASS SGU_WIDGET *w,const int x,const int y){
+static void *_sgu_find(CLASS _SGU_NODE *w,const int x,const int y){
     void *p=NULL;
     if(w && sgm_at(&w->m,x-w->m.x,y-w->m.y)){
 _mark:
-        p=w; w=(CLASS SGU_WIDGET*)(((CLASS _SGU_NODE*)w)->last);
+        p=w; w=w->last;
         while(w){
-            if(w->able && sgm_at(&w->m,x-w->m.x,y-w->m.y))
+            if(((CLASS SGU_WIDGET*)w)->able && sgm_at(&w->m,x-w->m.x,y-w->m.y))
                 goto _mark;
-            w=(CLASS SGU_WIDGET*)(((CLASS _SGU_NODE*)w)->prev);
+            w=w->prev;
         }
     }
     return p;
@@ -63,7 +63,7 @@ static void _sgu_draw(CLASS SGU_WIDGET * const w){
     CLASS _SGU_NODE *i=(CLASS _SGU_NODE*)w, *p;
     while(1)
         if( ((CLASS SGU_WIDGET*)i)->visible ){
-            ((CLASS SGU_WIDGET*)i)->onDraw((p=i));
+            ((CLASS SGU_WIDGET*)i)->onDraw((p=i),&i->m);
             if( (i=i->child) ) continue;
             if( (i=p->next) ) continue;
             if(p->parent==w) return;
@@ -80,18 +80,19 @@ static void _sgu_default(void){}
 
 CLASS_COMPILE(_SGU_NODE)(
     constructor(parent)(
-        self->onInsert=(void*)_sgu_default;
+        SG_SET(void*,self->onInsert,_sgu_default);
         if(parent){
-            SG_SET(void*,self->ui,((CLASS _SGU_NODE*)self)->ui);
+            SG_SET(void*,self->ui,((CLASS _SGU_NODE*)parent)->ui);
             _sgu_link(self,parent);
         }
     ),
     destructor()(
+        void * const rm=(self->ui?(void*)self->ui->deallocator:(void*)_sgu_default);
         CLASS _SGU_NODE *w;
         _sgu_link(self,NULL);
         while( (w=self->child) ){
             w->destructor(w);
-            self->ui->deallocator(w);
+            ((void(*)(void*))rm)(w);
         }
     )
 )
@@ -100,27 +101,29 @@ CLASS_COMPILE(SGU_WIDGET)(
     constructor(parent)(
         if(!self) self=((CLASS SGU_WIDGET*)parent)->ui->allocator(sizeof(*self));
         super(self,parent);
-        self->onDraw=(void*)_sgu_default;
-        self->onInput=(void*)_sgu_default;
-        self->onSelect=(void*)_sgu_default;
-        self->onUpdate=(void*)_sgu_default;
+        SG_SET(void*,self->onDraw,_sgu_default);
+        SG_SET(void*,self->onInput,_sgu_default);
+        SG_SET(void*,self->onSelect,_sgu_default);
+        SG_SET(void*,self->onUpdate,_sgu_default);
+        self->able=self->visible=1;
     )
 )
 
 
+static void _sgu_ui_draw(CLASS SGU_UI *self,const SGM *m){
+    sgm_square(m,0,0,m->w,m->h,&self->color);
+}
 
 CLASS_COMPILE(SGU_UI)(
     constructor(allocator,deallocator)(
         if(!allocator) allocator=malloc;
         if(!deallocator) deallocator=free;
         if(!self){self=allocator(sizeof(*self)); memset(self,0,sizeof(*self)); (void)super;}
-        SG_SET(void*,self->ui,self);
+        super(self,NULL);
         SG_SET(void*,self->allocator,allocator);
         SG_SET(void*,self->deallocator,deallocator);
-        self->onDraw=(void*)_sgu_default;
-        self->onInput=(void*)_sgu_default;
-        self->onSelect=(void*)_sgu_default;
-        self->onUpdate=(void*)_sgu_default;
+        SG_SET(void*,self->ui,self);
+        SG_SET(void*,self->onDraw,_sgu_ui_draw);
     )
 )
 

@@ -25,6 +25,10 @@ typedef struct{
     SGK key;
 
     struct{
+        unsigned int w,h;
+    }size;
+
+    struct{
         int x,y;
     }cursor;
 
@@ -46,6 +50,7 @@ typedef struct{
     ),\
     private(\
         CLASS _SGU_NODE *child,*prev,*next,*last;\
+        SGM m;\
     )
 CLASS_END(_SGU_NODE);
 
@@ -54,7 +59,7 @@ CLASS_END(_SGU_NODE);
     extends(_SGU_NODE),\
     constructor(void *parent)(),\
     public(\
-        void (*onDraw)(void *self);\
+        void (*onDraw)(void *self,const SGM*);\
         void (*onUpdate)(void *self);\
         void (*onSelect)(void *self);\
         void (*onInput)(void *self,SGU *input);\
@@ -65,11 +70,9 @@ CLASS_END(_SGU_NODE);
         unsigned char movable:1;\
         unsigned char resizable:1;\
         unsigned char dNd:1;\
-    ),\
-    private(\
-        SGM m;\
     )
 CLASS_END(SGU_WIDGET);
+
 
 #define CLASS_BEGIN__SGU_UI \
     extends(SGU_WIDGET),\
@@ -77,6 +80,8 @@ CLASS_END(SGU_WIDGET);
     public(\
         void*(* const allocator)(size_t);\
         void(* const deallocator)(void*);\
+        void *userData;\
+        SGC color;\
     ),\
     private(\
         \

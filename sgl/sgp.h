@@ -78,6 +78,8 @@ void sgm_bmp(const SGM *m,const char *name);
 void sgm_string(const SGM * const m,int x,int y,const void *c,const SGF *f,enum SGF_ALIGN a,const char *s);
 
 
+
+
 enum SGP{
     SGP_COPY = 0,
     SGP_ATTACH = 1
