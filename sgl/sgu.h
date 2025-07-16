@@ -6,30 +6,38 @@
 #ifndef SG_UI_H
 #define SG_UI_H
 
+#include "sgc.h"
 #include "sgk.h"
 #include "sgp.h"
 #include "./sgu/class.h"
 
 #include <stddef.h>
 
+
+void *sgu_select(void *widget);
+void *sgu_insert(void *widget,void *parent);
+
+char sgu_moved(const void *widget);
+char sgu_resized(const void *widget);
+char sgu_focused(const void *widget);
+char sgu_selected(const void *widget);
+
+
+
+
 typedef struct{
 
-    enum{
+    enum SGU{
         SGU_PRESS   = 1<<0,
         SGU_RELEASE = 1<<1,
-        SGU_SCROLL  = 1<<3,
-        SGU_CURSOR  = 1<<4,
-        SGU_RESIZE  = 1<<5
+        SGU_SCROLL  = 1<<2,
+        SGU_CURSOR  = 1<<3,
     }event;
 
     SGK key;
 
     struct{
-        unsigned int w,h;
-    }size;
-
-    struct{
-        int x,y;
+        int x, y;
     }cursor;
 
     enum{
@@ -50,7 +58,6 @@ typedef struct{
     ),\
     private(\
         CLASS _SGU_NODE *child,*prev,*next,*last;\
-        SGM m;\
     )
 CLASS_END(_SGU_NODE);
 
@@ -59,10 +66,11 @@ CLASS_END(_SGU_NODE);
     extends(_SGU_NODE),\
     constructor(void *parent)(),\
     public(\
+        void (*core)(void *self,SGU *event);\
         void (*onDraw)(void *self,const SGM*);\
         void (*onUpdate)(void *self);\
         void (*onSelect)(void *self);\
-        void (*onInput)(void *self,SGU *input);\
+        void (*onEvent)(void *self,SGU *event);\
         int x,y;\
         unsigned int w,h;\
         unsigned char able:1;\
@@ -70,6 +78,9 @@ CLASS_END(_SGU_NODE);
         unsigned char movable:1;\
         unsigned char resizable:1;\
         unsigned char dNd:1;\
+    ),\
+    private(\
+        SGM m;\
     )
 CLASS_END(SGU_WIDGET);
 
@@ -80,11 +91,13 @@ CLASS_END(SGU_WIDGET);
     public(\
         void*(* const allocator)(size_t);\
         void(* const deallocator)(void*);\
+        void(* const run)(void *self,const SGU *sgu);\
         void *userData;\
         SGC color;\
     ),\
     private(\
-        \
+        void *focus, *select, *block;\
+        int flags;\
     )
 CLASS_END(SGU_UI);
 

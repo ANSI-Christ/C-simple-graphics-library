@@ -100,5 +100,7 @@ static char _sgbm_5x11[94][11]={
     {0x00,0x00,0x00,0x08,0x15,0x02,0x00,0x00,0x00,0x00,0x00}, /* ~ */
 };
 
-const SGF sgf_5x11={_sgbm_5x11[0],'!','~',5,11,5,11,2,2};
+
+static const SGB _sgb_5x11={_sgbm_5x11[0],'!','~',5,11};
+const SGF sgf_5x11={&_sgb_5x11,5,11,2,2};
 const SGF *sgf_default=&sgf_5x11;

@@ -7,9 +7,13 @@
 #define SG_PAINT
 
 typedef struct{
-    const char * const bitmap;
-    const unsigned char begin, end;
-    const unsigned char bpw, bph;
+    const char *data;
+    unsigned char begin, end;
+    unsigned char bpw, bph;
+}SGB;
+
+typedef struct{
+    const SGB *bitmap;
     unsigned short w, h;
     unsigned short gap_w, gap_h;
 }SGF;

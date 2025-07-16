@@ -554,9 +554,11 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
     if(!*s) return;
     if(!f) f=sgf_default;
 {   const struct _sgm_symb info[1]={{c,m->color_bytes}};
-    const unsigned int char_begin=f->begin, char_end=1+f->end;
+    const SGB * const bitmap=f->bitmap;
+    const unsigned int char_begin=bitmap->begin, char_end=1+bitmap->end;
     const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
-    const unsigned int w=((f->bpw-1)>>3)+1, h=f->bph*w;
+    const unsigned int w=((bitmap->bpw-1)>>3)+1, h=bitmap->bph*w;
+    const unsigned int csize=(unsigned int)bitmap->bpw*bitmap->bph;
 
     int dy=y-_sgf_dy(s,oy,f->gap_h,a);
     int dx=x-_sgf_dx(s,ox,f->gap_w,a);
@@ -564,10 +566,10 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
 
     SGM m_char[1], m_symb[1];
     void * const converter=_sgm_char2symb;
-    char _buffer[1024], *p=( (unsigned int)f->bpw*f->bph<sizeof(_buffer) ? _buffer : malloc((unsigned int)f->bpw*f->bph<sizeof(_buffer)));
+    char _buffer[1024], *p=( csize<sizeof(_buffer) ? _buffer : malloc(csize));
 
     if(!p) return;
-    sgm_cfg(m_char,p,f->bpw,f->bph,sizeof(char));
+    sgm_cfg(m_char,p,bitmap->bpw,bitmap->bph,sizeof(char));
 
     while(*s){
         const unsigned char id=*(s++);
@@ -577,7 +579,7 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
             continue;
         }
         if(id>=char_begin && id<char_end){
-            const char *bm=f->bitmap+(id-char_begin)*h;
+            const char *bm=bitmap->data+(id-char_begin)*h;
             for(i=0,p=m_char->data;i<m_char->h;++i,bm+=w)
                 for(j=m_char->w;j;++p){
                     --j; *p=bm[(j>>3)] & 1<<(j&7);
