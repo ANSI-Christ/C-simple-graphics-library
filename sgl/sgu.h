@@ -97,7 +97,7 @@ CLASS_END(SGU_WIDGET);
     ),\
     private(\
         void *focus, *select, *block;\
-        int flags;\
+        int flags, dxy[2];\
     )
 CLASS_END(SGU_UI);
 

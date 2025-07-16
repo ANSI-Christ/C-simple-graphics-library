@@ -152,94 +152,58 @@ CLASS_COMPILE(SGU_WIDGET)(
 )
 
 
-/*
-char _GUI_widgetBase(CLASS GUI_WIDGET *w,int e,int key){
+
+static char _sgu_basics(CLASS SGU_WIDGET * const w,const SGU * const sgu){
     if(w){
-        CLASS GUI *gui=w->gui;
-        if((e & GUI_EVENT_CURSOR) && (gui->flags & 16)){
-            M_TYPEOF(gui->display.input.mouse) const * const m=&gui->display.input.mouse;
-            key=0;
+        CLASS SGU_UI * const ui=w->ui;
+        const int cx=sgu->cursor.x, cy=sgu->cursor.y;
+        if( (sgu->event & SGU_CURSOR) && (ui->flags & 16) ){
+            const int dx=cx-w->m.x-ui->dxy[0], dy=cy-w->m.y-ui->dxy[1];
+            int act=0;
             if(w->resizable){
-                gui->flags|=32;
-                key=gui->flags&15;
-                if(gui->flags & 1){w->width+=m->dx;}
-                if(gui->flags & 2){w->width-=m->dx; w->x+=m->dx;}
-                if(gui->flags & 4){w->height+=m->dy;}
-                if(gui->flags & 8){w->height-=m->dy; w->y+=m->dy;}
+                ui->flags|=32;
+                act=ui->flags&15;
+                if(ui->flags & 1){w->w+=dx;}
+                if(ui->flags & 2){w->w-=dx; w->x+=dx;}
+                if(ui->flags & 4){w->h+=dy;}
+                if(ui->flags & 8){w->h-=dy; w->y+=dy;}
             }
-            if((w->movable|w->detachable) && !key){
-                gui->flags|=32;
-                w->x=m->x-w->parent->m.subColumn-gui->wmv[0];
-                w->y=m->y-w->parent->m.subRow-gui->wmv[1];
-                if(w->detachable) w->m.options|=KLS_MATRIX_SUBUNLIM_H|KLS_MATRIX_SUBUNLIM_V;
-            }
-        }
-        if((e & GUI_EVENT_PRESS) && (short)key==GUI_KEY_LB){
-            int x=gui->wmv[0]=gui->display.input.mouse.x-w->m.subColumn, y=gui->wmv[1]=gui->display.input.mouse.y-w->m.subRow;
-            gui->flags |= 16 | ((x<4)<<1) | ((x>w->width-4)) | ((y<4)<<3) | ((y>w->height-4)<<2);
-        }
-        if((e & GUI_EVENT_RELEASE) && (short)key==GUI_KEY_LB && ((gui->flags&=~31) & 32)){
-            gui->flags&=~32;
-            if(w->detachable && gui->block!=w){
-                CLASS GUI_WIDGET *from=w->parent, *to;
-                w->m.options&=~(KLS_MATRIX_SUBUNLIM_H|KLS_MATRIX_SUBUNLIM_V);
-                _GUI_widgetLink(w,NULL);
-                to=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y);
-                _GUI_widgetLink(w,to?to:from);
-                w->x=w->m.subColumn-w->parent->m.subColumn;
-                w->y=w->m.subRow-w->parent->m.subRow;
+            if((w->movable|w->dNd) && !act){
+                ui->flags|=32;
+                w->x=cx-w->parent->m.x-ui->dxy[0];
+                w->y=cy-w->parent->m.y-ui->dxy[1];
+                if(w->dNd) w->m.flags|=SGM_UNLIMITED;
             }
         }
-        return gui->flags & 32;
+        if( (sgu->event & SGU_PRESS) && (sgu->key & SGK_LB)){
+            const int dx=ui->dxy[0]=cx-w->m.x, dy=ui->dxy[1]=cy-w->m.y;
+            ui->flags |= 16 | ((dx<4)<<1) | ((dx>w->w-4)) | ((dy<4)<<3) | ((dy>w->h-4)<<2);
+        }
+        if( (sgu->event & SGU_RELEASE) && (sgu->key==SGK_LB) && ((ui->flags&=~31) & 32)){
+            ui->flags&=~32;
+            if(w->dNd && ui->block!=(void*)w){
+                CLASS SGU_WIDGET * const from=w->parent, *to;
+                w->m.flags&=~SGM_UNLIMITED;
+                _sgu_link((CLASS _SGU_NODE*)w,NULL);
+                to=(CLASS SGU_WIDGET*)_sgu_find(ui->block,cx,cy);
+                _sgu_link((CLASS _SGU_NODE*)w,(CLASS _SGU_NODE*)(to?to:from));
+                w->x=w->m.x-w->parent->m.x;
+                w->y=w->m.y-w->parent->m.y;
+            }
+        }
+        return ui->flags & 32;
     }
-    return -1;
-}
-
-void _GUI_inputService(CLASS GUI *gui,int event,int key){
-    if(event){
-        if(!(gui->flags & 32)){ // current widget isn't moving or resizing 
-            if( (event & GUI_EVENT_CURSOR)
-            && (gui->focus=_GUI_widgetByXY(gui->block,gui->display.input.mouse.x,gui->display.input.mouse.y))!=gui->select )
-                return;
-            if( ((event & (GUI_EVENT_RELEASE|GUI_EVENT_PRESS)) && ((short)key==GUI_KEY_LB || (short)key==GUI_KEY_RB || (short)key==GUI_KEY_WHEEL))
-            || (event & GUI_EVENT_WHEEL) )
-                gui->select=GUI_widgetSelect(gui->focus);
-        }
-        if(!_GUI_widgetBase(gui->select,event,key))
-            while(gui->select){
-                CLASS GUI_WIDGET *w=gui->select;
-                GUI_t_INPUT i=gui->display.input;
-                i.mouse.x-=w->m.subColumn;
-                i.mouse.y-=w->m.subRow;
-                w->core.input(w,event,&i);
-                if(w->onInput) w->onInput(w,event,&i);
-                if(w==gui->select) break;
-            }
-    }
-}
-
-*/
-
-enum{
-    _SGU_MOVE_X = 1<<0,
-    _SGU_MOVE_Y = 1<<1,
-    _SGU_SIZE_W = 1<<2,
-    _SGU_SIZE_H = 1<<3,
-    _SGU_CHANGE = 1<<4
-};
-
-static char _sgu_basics(CLASS SGU_UI * const ui,const SGU * const sgu){
     return -1;
 }
 
 static void _sgu_events(CLASS SGU_UI * const ui,const SGU * const sgu){
-    if(!(ui->flags & _SGU_CHANGE)){
+    if( !(ui->flags & 32) ){
         if( (sgu->event & SGU_CURSOR) && (ui->focus=_sgu_find(ui->block,sgu->cursor.x,sgu->cursor.y))!=ui->select)
             return;
         if( (sgu->event & SGU_SCROLL) || ((sgu->event & (SGU_PRESS|SGU_RELEASE)) && (sgu->key & (SGK_LB|SGK_RB|SGK_MB))) )
             ui->select=sgu_select(ui->focus);
     }
-    if(!_sgu_basics(ui,sgu)){
+    if(!_sgu_basics((CLASS SGU_WIDGET*)ui->select,sgu)){
         SGU event=*sgu;
         while(ui->select){
             CLASS SGU_WIDGET * const w=(CLASS SGU_WIDGET*)ui->select;
@@ -253,7 +217,7 @@ static void _sgu_events(CLASS SGU_UI * const ui,const SGU * const sgu){
 }
 
 static void _sgu_focus(CLASS SGU_UI * const ui,const SGU * const sgu){
-    if(ui->flags & _SGU_CHANGE) return; /* current widget moving or resizing */
+    if(ui->flags & 32) return;
     ui->focus=_sgu_find((CLASS SGU_WIDGET*)ui->block,sgu->cursor.x,sgu->cursor.y);
 }
 
