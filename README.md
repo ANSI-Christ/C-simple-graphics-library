@@ -1,5 +1,5 @@
 # C simple graphics library (sgl)
-A simple cross-platform graphics library, based on OS native frameworks: X11, WinApi, Cocoa, etc.
+A simple graphics library, based on X11 and WinApi.
 
 
 Modules:
@@ -16,10 +16,8 @@ Modules:
 Link with flags:
  - Windows: -lgdi32
  - Unix:    -lX11
- - MacOS:   undone yet
 
 To do:
- - macos realization
  - sgu module
 
 Look for usage examples in main.c

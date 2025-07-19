@@ -8,8 +8,7 @@ C_DEBUG     = -ggdb -c -Wall
 C_FLAGS     = $(C_RELEASE)
 #C_FLAGS     = $(C_DEBUG)
 LD_FLAGS    =
-SOURCES_C   =
-SOURCES_M   =
+SOURCES     =
 OBJECTS     =
 OBJECTS_ADD =
 
@@ -19,29 +18,25 @@ OBJECTS_ADD =
 
 ##################################################################
 
-C_FLAGS += -I./
+#C_FLAGS += -I./
 
 ##################################################################
 
 LD_FLAGS += -lc -lm
 LD_FLAGS += -lX11
-#LD_FLAGS += -framework Cocoa
 
 ##################################################################
 
-SOURCES_C += main.c
-SOURCES_C += sgl/sgl.c
-
-#SOURCES_M += sgl/sgw/sg_cocoa.m
+SOURCES += main.c
+SOURCES += sgl/sgl.c
 
 ##################################################################
 
-OBJECTS += $(SOURCES_C:.c=.o)
-OBJECTS += $(SOURCES_M:.m=.o)
+OBJECTS += $(SOURCES:.c=.o)
 
 ##################################################################
 
-all: $(SOURCES_C) $(SOURCES_M)  $(TARGET)
+all: $(SOURCES) $(TARGET)
 
 ##################################################################
 
