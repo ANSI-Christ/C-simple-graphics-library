@@ -85,14 +85,13 @@ typedef struct{
     Display *display;
     Window window;
     GC gc;
-    int screen;
-    int xconn, ctrl[2];
-    unsigned int color_max;
-    unsigned char color_bytes;
     struct{
         Atom WM_PROTOCOLS;
         Atom WM_DELETE_WINDOW;
     }atom;
+    int xconn, ctrl[2];
+    unsigned int color_max;
+    unsigned char color_bytes;
 }sgw_x11;
 
 #define SGW_UNCONST(_name_,_const_) sgw_x11 * const _name_ = (sgw_x11*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
@@ -155,6 +154,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
     if(!deallocator){deallocator=free;}{
     SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
+        int screen;
         memset(w,0,sizeof(*w));
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
@@ -164,18 +164,18 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
             break;
         if( !(w->display=XOpenDisplay(NULL)) )
             break;
-        w->screen=DefaultScreen(w->display);
+        screen=DefaultScreen(w->display);
         w->xconn=XConnectionNumber(w->display);
-        switch( (w->w.bitness=DefaultDepth(w->display,w->screen)) ){
+        switch( (w->w.bitness=DefaultDepth(w->display,screen)) ){
             case 15: case 16: w->color_bytes=2; break;
             case 24: case 32: w->color_bytes=4; break;
             default: w->color_bytes=1; break;
         }
-        w->gc=DefaultGC(w->display,XDefaultScreen(w->display));
+        w->gc=DefaultGC(w->display,screen);
 
-        if( !(w->window=XCreateSimpleWindow(w->display,RootWindow(w->display,w->screen),50,50,50,50,1,BlackPixel(w->display,w->screen),WhitePixel(w->display,w->screen))) )
+        if( !(w->window=XCreateSimpleWindow(w->display,RootWindow(w->display,screen),50,50,50,50,1,BlackPixel(w->display,screen),WhitePixel(w->display,screen))) )
             break;
-        if( !(w->image=XCreateImage(w->display,DefaultVisual(w->display,w->screen),w->w.bitness,ZPixmap,0,NULL,50,50,XBitmapPad(w->display),0)) )
+        if( !(w->image=XCreateImage(w->display,DefaultVisual(w->display,screen),w->w.bitness,ZPixmap,0,NULL,50,50,XBitmapPad(w->display),0)) )
             break;
 #define _SGW_ATOM(_1_) w->atom._1_=XInternAtom(w->display,#_1_,0)
         _SGW_ATOM(WM_PROTOCOLS);

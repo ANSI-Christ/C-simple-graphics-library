@@ -235,9 +235,11 @@ static void _sgu_update(CLASS SGU_WIDGET * const ui){
         sgm_sub(&i->parent->m,i->x,i->y,i->w,i->h,i->m.flags,&i->m);
 }
 
-static void _sgu_ui_run(CLASS SGU_UI * const ui,SGC * const pixels,const unsigned int w,const unsigned int h,const SGU * const sgu){
+static void _sgu_ui_run(CLASS SGU_UI * const ui,void * const pixels,const unsigned int w,const unsigned int h,const SGU * const sgu){
     if(sgu->event & 0xF){
-        sgm_cfg(&((CLASS SGU_WIDGET*)ui)->m,pixels,w,h,sizeof(*pixels));
+        ui->x=ui->y=0;
+        ui->movable=ui->resizable=ui->dNd=0;
+        sgm_cfg(&((CLASS SGU_WIDGET*)ui)->m,pixels,(ui->w=w),(ui->h=h),ui->color_bytes);
         _sgu_events(ui,sgu);
         _sgu_update((CLASS SGU_WIDGET*)ui);
         _sgu_focus(ui,sgu);
@@ -246,11 +248,11 @@ static void _sgu_ui_run(CLASS SGU_UI * const ui,SGC * const pixels,const unsigne
 }
 
 static void _sgu_ui_draw(const CLASS SGU_UI * const ui,const SGM * const m){
-    sgm_square(m,0,0,m->w,m->h,&ui->color);
+    sgm_square(m,0,0,m->w,m->h,ui->color);
 }
 
 CLASS_COMPILE(SGU_UI)(
-    constructor(allocator,deallocator)(
+    constructor(color_bytes,allocator,deallocator)(
         if(!allocator) allocator=malloc;
         if(!deallocator) deallocator=free;
         if(!self){self=allocator(sizeof(*self)); memset(self,0,sizeof(*self)); if(0)(void)super;}
@@ -262,6 +264,7 @@ CLASS_COMPILE(SGU_UI)(
         SG_SET(void*,self->run,_sgu_ui_run);
         SG_SET(void*,self->onDraw,_sgu_ui_draw);
         self->focus=self->select=self->block=self;
+        self->color_bytes=color_bytes;
     )
 )
 

@@ -6,7 +6,6 @@
 #ifndef SG_UI_H
 #define SG_UI_H
 
-#include "sgc.h"
 #include "sgk.h"
 #include "sgp.h"
 #include "./sgu/class.h"
@@ -87,16 +86,17 @@ CLASS_END(SGU_WIDGET);
 
 #define CLASS_BEGIN__SGU_UI \
     extends(SGU_WIDGET),\
-    constructor(void*(*allocator)(size_t),void(*deallocator)(void*))(),\
+    constructor(unsigned int color_bytes,void*(*allocator)(size_t),void(*deallocator)(void*))(),\
     public(\
         void*(* const allocator)(size_t);\
         void(* const deallocator)(void*);\
-        void(* const run)(void *self,const SGU *sgu);\
+        void(* const run)(void *self,void *pixels,unsigned int w,unsigned int h,const SGU *sgu);\
         void *userData;\
-        SGC color;\
+        const void* color;\
     ),\
     private(\
         void *focus, *select, *block;\
+        unsigned int color_bytes;\
         int flags, dxy[2];\
     )
 CLASS_END(SGU_UI);
