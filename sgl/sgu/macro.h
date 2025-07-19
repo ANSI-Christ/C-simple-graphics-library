@@ -6,6 +6,12 @@
 #ifndef MACRO_H
 #define MACRO_H
 
+enum M_ENDIAN{
+    M_ENDIAN_LTL = (1<<0),
+    M_ENDIAN_PDP = (1<<16),
+    M_ENDIAN_BIG = (1<<24)
+};
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -14,6 +20,7 @@
 #define M_FILE() __FILE__
 #define M_LINE() __LINE__
 #define M_FUNCTION() __func__
+#define M_ENDIAN() ((const union{unsigned char _; enum M_ENDIAN e;}){1}).e
 
 #define M_TYPEOF __typeof__
 #define M_ALIGNOF(_type_) _M_ALIGNOF(_type_)
@@ -40,10 +47,11 @@
 
 #define M_OVERLOAD(macros,...) M_JOIN(macros,M_COUNT(__VA_ARGS__))
 #define M_FOREACH(macros,arg,...) M_LOOP(_M_FOREACH_MAP1(macros,arg,__VA_ARGS__,()()(),()()(),()()(),0))
-#define M_LOOP(...) _M_LOOP4(__VA_ARGS__)
+#define M_LOOP(...) _M_LOOP1(_M_LOOP1(_M_LOOP1(__VA_ARGS__)))
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 #ifdef __cplusplus
 #define _M_EXTERN_C(...) extern "C"{__VA_ARGS__}
 #define _M_ALIGNOF(_1_) alignof(M_TYPEOF(_1_))
