@@ -112,12 +112,13 @@ static void _sgw_class_init(void){
 void sgw_close(SGW * const _w){
     SGW_UNCONST(w,_w);
     if(w){
-        if(w->cursor[1]){
-            DestroyCursor(w->cursor[1]);
-        }
         if(w->window){
+            sgw_cursor(_w,1);
             ReleaseDC(w->window,w->dc);
             DestroyWindow(w->window);
+        }
+        if(w->cursor[0]){
+            DestroyCursor(w->cursor[0]);
         }
         _w->deallocator(w->w.pixel);
         if(w->local_buffer!=(void*)w->w.pixel)
@@ -155,7 +156,10 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
     SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
         memset(w,0,sizeof(*w));
+        w->w.cursor.visible=1;
+        w->w.allocator=allocator;
         w->w.deallocator=deallocator;
+        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         pthread_once(&_sgw_once,_sgw_class_init);
         if( !(w->window=CreateWindowA(SGW_CLASS_NAME," ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
             break;
@@ -172,10 +176,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         w->bmi->bmiHeader.biCompression=BI_RGB;
         w->bmi->bmiHeader.biPlanes=1;
         w->bmi->bmiHeader.biBitCount=w->w.bitness;
-
-        w->w.allocator=allocator;
-        w->w.mode=SGW_XYWH|SGW_MUTABLE;
-        w->cursor[(w->w.cursor.visible=1)]=(HCURSOR)GetClassLongPtr(w->window,GCLP_HCURSOR);
+        w->cursor[1]=(HCURSOR)GetClassLongPtr(w->window,GCLP_HCURSOR);
         _sgw_size(w);
         _sgw_resize(w);
         return &w->w;

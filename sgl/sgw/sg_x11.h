@@ -119,12 +119,14 @@ void sgw_close(SGW * const _w){
             w->image->data=NULL;
             XDestroyImage(w->image);
         }
-        if(w->cursor!=None){
-            XFreeCursor(w->display,w->cursor);
-        }
         if(w->display){
-            if(w->window)
+            if(w->window){
+                sgw_cursor(_w,1);
                 XDestroyWindow(w->display,w->window);
+                if(w->cursor!=None){
+                    XFreeCursor(w->display,w->cursor);
+                }
+            }
             XCloseDisplay(w->display);
         }
         _w->deallocator(w);
@@ -170,7 +172,10 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         int screen;
         memset(w,0,sizeof(*w));
         w->cursor=None;
+        w->w.cursor.visible=1;
+        w->w.allocator=allocator;
         w->w.deallocator=deallocator;
+        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         w->ctrl[0]=w->ctrl[1]=-1;
         if(pipe(w->ctrl))
             break;
@@ -199,10 +204,6 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         XSelectInput(w->display,w->window,ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
         XMapRaised(w->display,w->window);
         XFlush(w->display);
-
-        w->w.cursor.visible=1;
-        w->w.allocator=allocator;
-        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         _sgw_size(w);
         _sgw_resize(w);
         { XEvent message[1]; XSync(w->display,0); while(_sgw_check_window_mask(w,ExposureMask|StructureNotifyMask,message)){} }
@@ -222,7 +223,6 @@ void sgw_cursor(SGW * const _w,const unsigned char visible){
     if(w->w.cursor.visible!=visible){
         if( (w->w.cursor.visible=visible) ) XUndefineCursor(w->display,w->window);
         else XDefineCursor(w->display,w->window,w->cursor);
-        XFlush(w->display);
     }
 }
 
