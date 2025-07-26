@@ -128,19 +128,18 @@ CLASS_COMPILE(_SGU_NODE)(
         }
     ),
     destructor()(
-        void * const rm=(self->ui?(void*)self->ui->deallocator:(void*)_sgu_default);
-        CLASS _SGU_NODE *w;
         _sgu_link(self,NULL);
-        while( (w=self->child) ){
-            w->destructor(w);
-            ((void(*)(void*))rm)(w);
-        }
+        while(self->child) self->child->destructor(self->child);
+        if(self->ui) self->ui->deallocator(self);
     )
 )
 
 CLASS_COMPILE(SGU_WIDGET)(
     constructor(parent)(
-        if(!self) self=((CLASS SGU_WIDGET*)parent)->ui->allocator(sizeof(*self));
+        if(!self){
+            if( !(self=((CLASS SGU_WIDGET*)parent)->ui->allocator(sizeof(*self))) ) return NULL;
+            return SGU_WIDGET()->constructor(self,parent);
+        }
         super(self,parent);
         SG_SET(void*,self->core,_sgu_default);
         SG_SET(void*,self->onDraw,_sgu_default);
@@ -255,7 +254,10 @@ CLASS_COMPILE(SGU_UI)(
     constructor(color_bytes,allocator,deallocator)(
         if(!allocator) allocator=malloc;
         if(!deallocator) deallocator=free;
-        if(!self){self=allocator(sizeof(*self)); memset(self,0,sizeof(*self)); if(0)(void)super;}
+        if(!self){
+            if( !(self=allocator(sizeof(*self))) ) return NULL;
+            return SGU_UI()->constructor(self,color_bytes,allocator,deallocator);
+        }
 
         super(self,NULL);
         SG_SET(void*,self->allocator,allocator);

@@ -69,6 +69,7 @@ typedef struct _sgw{
 
     struct{
         int x,y;
+        unsigned char visible;
     }cursor;
 
     unsigned char bitness;
@@ -91,6 +92,8 @@ void sgw_async(SGW *w,const void *p);
 void sgw_rect(SGW *w,enum SGW mode,...);
 
 void sgw_title(SGW *w,const char *title);
+
+void sgw_cursor(SGW *w,unsigned char visible);
 
 enum SGE sgw_event(SGW *w,int t,SGE *e);
 

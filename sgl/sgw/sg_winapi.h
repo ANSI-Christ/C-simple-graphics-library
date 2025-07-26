@@ -67,6 +67,7 @@ typedef struct{
     unsigned int color_max;
     unsigned char color_bytes;
     HWND window;
+    HCURSOR cursor[2];
     HDC dc;
     UINT message;
     BITMAPINFO bmi[1];
@@ -111,6 +112,9 @@ static void _sgw_class_init(void){
 void sgw_close(SGW * const _w){
     SGW_UNCONST(w,_w);
     if(w){
+        if(w->cursor[1]){
+            DestroyCursor(w->cursor[1]);
+        }
         if(w->window){
             ReleaseDC(w->window,w->dc);
             DestroyWindow(w->window);
@@ -151,11 +155,11 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
     SGW_UNCONST(w,allocator(sizeof(*w)));
     while(w){
         memset(w,0,sizeof(*w));
-        w->w.allocator=allocator;
         w->w.deallocator=deallocator;
-        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         pthread_once(&_sgw_once,_sgw_class_init);
         if( !(w->window=CreateWindowA(SGW_CLASS_NAME," ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
+            break;
+        if( !(w->cursor[0]=CreateCursor(NULL, 0,0, 1,1, "\xff","\x00")) )
             break;
         w->dc=GetDC(w->window);
         switch( (w->w.bitness=GetDeviceCaps(w->dc,BITSPIXEL)) ){
@@ -168,6 +172,10 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         w->bmi->bmiHeader.biCompression=BI_RGB;
         w->bmi->bmiHeader.biPlanes=1;
         w->bmi->bmiHeader.biBitCount=w->w.bitness;
+
+        w->w.allocator=allocator;
+        w->w.mode=SGW_XYWH|SGW_MUTABLE;
+        w->cursor[(w->w.cursor.visible=1)]=(HCURSOR)GetClassLongPtr(w->window,GCLP_HCURSOR);
         _sgw_size(w);
         _sgw_resize(w);
         return &w->w;
@@ -179,6 +187,14 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
 void sgw_title(SGW * const _w,const char *title){
     SGW_UNCONST(w,_w);
     SetWindowTextA(w->window,(w->w.title=title ? title : ""));
+}
+
+void sgw_cursor(SGW * const _w,const unsigned char visible){
+    SGW_UNCONST(w,_w);
+    if(w->w.cursor.visible!=visible){
+        SetClassLongPtr(w->window,GCLP_HCURSOR,(LONG_PTR)w->cursor[(w->w.cursor.visible=visible)]);
+        PostMessage(w->window, WM_SETCURSOR, (WPARAM)w->window, MAKELPARAM(HTCLIENT, 0));
+    }
 }
 
 void sgw_async(SGW * const _w,const void * const p){

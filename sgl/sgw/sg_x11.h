@@ -84,6 +84,7 @@ typedef struct{
     XImage *image;
     Display *display;
     Window window;
+    Cursor cursor;
     GC gc;
     struct{
         Atom WM_PROTOCOLS;
@@ -111,17 +112,20 @@ void sgw_close(SGW * const _w){
             close(w->ctrl[1]);
             close(w->ctrl[0]);
         }
-        if(w->display){
-            if(w->window)
-                XDestroyWindow(w->display,w->window);
-            XCloseDisplay(w->display);
-        }
         if(w->image){
             _w->deallocator(w->w.pixel);
             if(w->image->data!=(char*)w->w.pixel)
                 _w->deallocator(w->image->data);
             w->image->data=NULL;
             XDestroyImage(w->image);
+        }
+        if(w->cursor!=None){
+            XFreeCursor(w->display,w->cursor);
+        }
+        if(w->display){
+            if(w->window)
+                XDestroyWindow(w->display,w->window);
+            XCloseDisplay(w->display);
         }
         _w->deallocator(w);
     }
@@ -149,6 +153,15 @@ static void _sgw_resize(sgw_x11 * const w){
     w->image->bytes_per_line=w->image->width*w->color_bytes;
 }
 
+static char _sgw_create_cursor(sgw_x11 * const w){
+    XColor c={0}; const char bits[]={1};
+    Pixmap pm=XCreateBitmapFromData(w->display,w->window,bits,1,1);
+    if(pm==None) return 0;
+    w->cursor=XCreatePixmapCursor(w->display,pm,pm,&c,&c,0,0);
+    XFreePixmap(w->display,pm);
+    return w->cursor!=None;
+}
+
 SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
     if(!allocator){allocator=malloc;}
     if(!deallocator){deallocator=free;}{
@@ -156,9 +169,8 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
     while(w){
         int screen;
         memset(w,0,sizeof(*w));
-        w->w.allocator=allocator;
+        w->cursor=None;
         w->w.deallocator=deallocator;
-        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         w->ctrl[0]=w->ctrl[1]=-1;
         if(pipe(w->ctrl))
             break;
@@ -177,6 +189,8 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
             break;
         if( !(w->image=XCreateImage(w->display,DefaultVisual(w->display,screen),w->w.bitness,ZPixmap,0,NULL,50,50,XBitmapPad(w->display),0)) )
             break;
+        if( !_sgw_create_cursor(w) )
+            break;
 #define _SGW_ATOM(_1_) w->atom._1_=XInternAtom(w->display,#_1_,0)
         _SGW_ATOM(WM_PROTOCOLS);
         _SGW_ATOM(WM_DELETE_WINDOW);
@@ -185,6 +199,10 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         XSelectInput(w->display,w->window,ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
         XMapRaised(w->display,w->window);
         XFlush(w->display);
+
+        w->w.cursor.visible=1;
+        w->w.allocator=allocator;
+        w->w.mode=SGW_XYWH|SGW_MUTABLE;
         _sgw_size(w);
         _sgw_resize(w);
         { XEvent message[1]; XSync(w->display,0); while(_sgw_check_window_mask(w,ExposureMask|StructureNotifyMask,message)){} }
@@ -197,6 +215,15 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
 void sgw_title(SGW * const _w,const char *title){
     SGW_UNCONST(w,_w);
     XStoreName(w->display,w->window,(w->w.title=title ? title : ""));
+}
+
+void sgw_cursor(SGW * const _w,const unsigned char visible){
+    SGW_UNCONST(w,_w);
+    if(w->w.cursor.visible!=visible){
+        if( (w->w.cursor.visible=visible) ) XUndefineCursor(w->display,w->window);
+        else XDefineCursor(w->display,w->window,w->cursor);
+        XFlush(w->display);
+    }
 }
 
 void sgw_async(SGW * const _w,const void * const p){

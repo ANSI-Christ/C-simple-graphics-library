@@ -9,7 +9,7 @@
 typedef enum SGC SGC;
 
 SGC SGC_RGB(unsigned char red,unsigned char green,unsigned char blue,...);
-#define SGC_RGB(_r_,_g_,_b_,...)  ( ((__VA_ARGS__ +0)<<24) | (((unsigned char)(_r_))<<16) | (((unsigned char)(_g_))<<8) | (unsigned char)(_r_) )
+#define SGC_RGB(_r_,_g_,_b_,...)  ( ((__VA_ARGS__ +0)<<24) | (((unsigned char)(_r_))<<16) | (((unsigned char)(_g_))<<8) | (unsigned char)(_b_) )
 
 enum SGC{
     SGC_BLACK        = SGC_RGB(0, 0, 0),
