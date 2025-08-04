@@ -1,3 +1,8 @@
+/* * * * * * * * * * * * * * * * * */
+/* MIT License                     */
+/* Copyright (c) 2024 ANSI-Christ  */
+/* * * * * * * * * * * * * * * * * */
+
 #define _SG_STR(_1_) #_1_
 #define _SG_INC(_n_) _SG_STR(sg_##_n_)
 
@@ -13,9 +18,11 @@
     #endif
 #endif
 
-#ifdef SG_IMPL
-    #include SG_IMPL
+#ifndef SG_IMPL
+    #define SG_IMPL _SG_INC(none.h)
 #endif
+
+#include SG_IMPL
 
 #undef _SG_INC
 #undef _SG_STR

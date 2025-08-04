@@ -225,8 +225,10 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
         if( (mode & SGW_MODES)<=SGW_XYWH ){
             va_list l;
             va_start(l,mode);
-            if(mode & SGW_XY){ w->w.rectangle.x=va_arg(l,int); w->w.rectangle.y=va_arg(l,int); }
-            if(mode & SGW_WH){ w->w.rectangle.w=va_arg(l,unsigned int); w->w.rectangle.h=va_arg(l,unsigned int); }
+            if(mode & SGW_X) w->w.rectangle.x=va_arg(l,int);
+            if(mode & SGW_Y) w->w.rectangle.y=va_arg(l,int);
+            if(mode & SGW_W) w->w.rectangle.w=va_arg(l,unsigned int);
+            if(mode & SGW_H) w->w.rectangle.h=va_arg(l,unsigned int);
             va_end(l);
 
             flags|=2;

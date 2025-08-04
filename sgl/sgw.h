@@ -39,9 +39,13 @@ typedef union{
 enum SGW{
 
     SGW_MODES = 0xFF,
-        SGW_XY    = 1<<0,
-        SGW_WH    = 1<<1,
-        SGW_XYWH  = SGW_XY|SGW_WH,
+        SGW_X    = 1<<0,
+        SGW_Y    = 1<<1,
+        SGW_W    = 1<<2,
+        SGW_H    = 1<<3,
+        SGW_XY   = SGW_X|SGW_Y,
+        SGW_WH   = SGW_W|SGW_H,
+        SGW_XYWH = SGW_XY|SGW_WH,
 
     SGW_STATES = 0xFF<<8,
         SGW_MUTABLE  = 1<<8,
