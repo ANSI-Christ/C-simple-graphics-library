@@ -4,24 +4,16 @@
 /* * * * * * * * * * * * * * * * * */
 
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
+
+#include <sys/time.h>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
 
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <sys/select.h>
-
-#ifndef FIONREAD
-    #if defined(__FreeBSD) || defined(__APPLE__)
-        #include <sys/filio.h>
-    #elif defined(_AIX) || defined(__hpux) || defined(__sun)
-        #include <stropts.h>
-    #endif
-#endif
 
 static SGK _sgk_keyboard(void * const x11){
     XKeyEvent * const key=(XKeyEvent*)x11;
@@ -206,6 +198,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         XFlush(w->display);
         _sgw_size(w);
         _sgw_resize(w);
+        fcntl(w->ctrl[0],F_SETFL, (O_NONBLOCK | fcntl(w->ctrl[0],F_GETFL)) );
         { XEvent message[1]; XSync(w->display,0); while(_sgw_check_window_mask(w,ExposureMask|StructureNotifyMask,message)){} }
         return &w->w;
     }
@@ -287,18 +280,26 @@ static void _sgw_time_change(const struct timeval * const src,const long sec,con
     }
 }
 
-static int _sge_wait(const sgw_x11 * const w,struct timeval * const t){
+static char _sge_fdread(const int fd,char *ptr){
+    int n=sizeof(void*), c=read(fd,ptr,n);
+    if(c<1) return 0;
+    n-=c;
+    while(n)
+        if( (c=read(fd,(ptr+=c),n))>0 )
+            n-=c;
+    return 1;
+}
+
+static int _sge_wait(const sgw_x11 * const w,struct timeval * const t,void * const async){
     fd_set set[1];
-    #ifdef FIONREAD
-    int var; if(!ioctl(w->ctrl[0],FIONREAD,&var) && var>0) return 1;
-    #endif
+    if(_sge_fdread(w->ctrl[0],(char*)async)) return 1;
     if(XPending(w->display)>0) return 2;
     FD_ZERO(set); FD_SET(w->xconn,set); FD_SET(w->ctrl[0],set);
     switch(select((w->xconn>w->ctrl[0]?w->xconn:w->ctrl[0])+1,set,NULL,NULL,t)){
         case -1: return -1;
         case 0: return 0;
     }
-    if(FD_ISSET(w->ctrl[0],set)) return 1;
+    if(FD_ISSET(w->ctrl[0],set) && _sge_fdread(w->ctrl[0],(char*)async)) return 1;
     if(XPending(w->display)>0) return 2;
     return 0;
 }
@@ -317,12 +318,9 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
         _sgw_time_change(&tm_stop,_tm.tv_sec,_tm.tv_usec,&tm_stop);
     }
     while(1){
-        switch(_sge_wait(w,tm)){
+        switch(_sge_wait(w,tm,&e->async)){
             case -1: return (errno==EINTR) ? SGE_NONE : SGE_CLOSE;
-            case 1:{
-                const int bytes=read(w->ctrl[0],&e->async,sizeof(e->async));
-                return SGE_ASYNC; if(bytes){} break;
-            }
+            case 1: return SGE_ASYNC;
             case 2: do{
                 XNextEvent(w->display,message);
                 switch(message->type){

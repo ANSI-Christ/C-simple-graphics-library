@@ -18,11 +18,9 @@
     #endif
 #endif
 
-#ifndef SG_IMPL
-    #define SG_IMPL _SG_INC(none.h)
+#ifdef SG_IMPL
+    #include SG_IMPL
 #endif
-
-#include SG_IMPL
 
 #undef _SG_INC
 #undef _SG_STR
