@@ -54,8 +54,8 @@ void sgm_sub(const SGM *m,int x,int y,unsigned int w,unsigned int h,enum SGM fla
 
 void *sgm_at(const SGM *m,int x,int y);
 
-int sgm_convert(const SGM *m,const SGM *c,char (*converter)(const void *from,void *to,const void *arg),const void *arg);
-int sgm_paste(const SGM *m,int x,int y,const SGM *p,char (*converter)(const void *from,void *to,const void *arg),const void *arg);
+int sgm_convert(const SGM *m,const SGM *c,char (*converter)(const void *from,void *to,void *arg),void *arg);
+int sgm_paste(const SGM *m,int x,int y,const SGM *p,char (*converter)(const void *from,void *to,void *arg),void *arg);
 
 void sgm_set(const SGM *m,int x,int y,const void *c);
 void sgm_swap(const SGM *m,int x,int y,const void *c1, const void *c2);

@@ -386,7 +386,7 @@ void sgm_fill(const SGM * const m,const int x,const int y,const void * const c,c
     else if(sgm_at(m,x,y)) _sgm_fill_row(m,x,y,1,x,x,c,border);
 }
 
-int sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
+int sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,char (*converter)(const void *from,void *to,void *arg),void *arg){
     unsigned int w=p->w,h=p->h;
     const void *from;
     void *to;
@@ -394,7 +394,7 @@ int sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,ch
         if(m->color_bytes!=p->color_bytes)
             return ENOTSUP;
         *(void**)&converter=_sgm_converter;
-        arg=(const void*)(size_t)m->color_bytes;
+        arg=(void*)(size_t)m->color_bytes;
     }
     while(h--)
         while(w--)
@@ -403,7 +403,7 @@ int sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,ch
     return 0;
 }
 
-int sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const void *from,void *to,const void *arg),const void *arg){
+int sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const void *from,void *to,void *arg),void *arg){
     const float rx=(float)m->w/c->w;
     const float ry=(float)m->h/c->h;
     const void *from, *last_from=NULL;
@@ -414,7 +414,7 @@ int sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const 
         if(m->color_bytes!=c->color_bytes)
             return ENOTSUP;
         *(void**)&converter=_sgm_converter;
-        arg=(const void*)(size_t)m->color_bytes;
+        arg=(void*)(size_t)m->color_bytes;
     }
     for(dy=0;dy<c->h;++dy)
         for(dx=0;dx<c->w;++dx)
@@ -467,7 +467,7 @@ static int _sgf_dx(const char * const s,const unsigned int ofs,const unsigned in
 void sgm_string(const SGM * const m,const int x,const int y,const void * const c,const SGF *f,const enum SGF_ALIGN a,const char *s){
     if(!*s) return;
     if(!f){f=sgf_default;}{
-    const struct _sgm_symb info[1]={{c,m->color_bytes}};
+    struct _sgm_symb info[1]={{c,m->color_bytes}};
     const SGB * const bitmap=f->bitmap;
     const unsigned int char_begin=bitmap->begin, char_end=1+bitmap->end;
     const unsigned int ox=f->w+f->gap_w, oy=f->h+f->gap_h;
@@ -480,7 +480,7 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
 
     SGM m_char[1], m_symb[1];
     void * const converter=_sgm_char2symb;
-    char _buffer[1024], *p=( csize<sizeof(_buffer) ? _buffer : malloc(csize));
+    char _buffer[1024], *p=( (csize>sizeof(_buffer)) ? malloc(csize) : _buffer );
 
     if(!p) return;
     sgm_cfg(m_char,p,bitmap->bpw,bitmap->bph,sizeof(char));
@@ -499,7 +499,7 @@ void sgm_string(const SGM * const m,const int x,const int y,const void * const c
                     --j; *p=bm[(j>>3)] & 1<<(j&7);
                 }
             sgm_sub(m,dx,dy,f->w,f->h,0,m_symb);
-            sgm_convert(m_char,m_symb,(char(*)(const void*,void*,const void*))converter,info);
+            sgm_convert(m_char,m_symb,(char(*)(const void*,void*,void*))converter,info);
         }
         dx+=ox;
     }
