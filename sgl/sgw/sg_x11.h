@@ -162,7 +162,8 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         w->w.cursor.visible=1;
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
-        w->w.mode=SGW_XYWH|SGW_MUTABLE;
+        w->w.rectangle.mode='m';
+        w->w.rectangle.state='n';
         w->ctrl[0]=w->ctrl[1]=-1;
         if(pipe(w->ctrl))
             break;
@@ -230,40 +231,32 @@ void sgw_render(SGW * const _w){
     XSynchronize(w->display,True);
 }
 
-void sgw_rect(SGW * const _w,const enum SGW mode,...){
+void sgw_mode(SGW * const _w,const char m){
     SGW_UNCONST(w,_w);
-    XSizeHints hints={.flags=PMinSize|PMaxSize};
-    int flags=0;
-
-    if( (mode & SGW_MUTABLE) && !(w->w.mode & SGW_MUTABLE) ){
-        flags|=1;
-        hints.min_width=10; hints.min_height=2; hints.max_width=hints.max_height=~(1<<(sizeof(hints.max_width)*8-1));
-        w->w.mode=(w->w.mode & SGW_MODES) | SGW_MUTABLE;
-    }
-
-    if( (mode & SGW_MODES) && (w->w.mode & SGW_MUTABLE) ){
-        if( (mode & SGW_MODES)<=SGW_XYWH ){
-            va_list l;
-            va_start(l,mode);
-            if(mode & SGW_X) w->w.rectangle.x=va_arg(l,int);
-            if(mode & SGW_Y) w->w.rectangle.y=va_arg(l,int);
-            if(mode & SGW_W) w->w.rectangle.w=va_arg(l,unsigned int);
-            if(mode & SGW_H) w->w.rectangle.h=va_arg(l,unsigned int);
-            va_end(l);
-            flags|=2|4;
-            w->w.mode=SGW_XYWH | (w->w.mode & SGW_STATES);
+    if(w->w.rectangle.mode!=m){
+        XSizeHints h;
+        switch(m){
+            case 'm': h.min_width=h.min_height=10; h.max_width=h.max_height=~(1<<(sizeof(h.max_width)*8-1)); break;
+            case 'f': h.min_width=h.max_width=w->w.rectangle.w; h.min_height=h.max_height=w->w.rectangle.h; break;
+            default: return;
         }
+        h.flags=PMinSize|PMaxSize;
+        XSetWMNormalHints(w->display,w->window,&h);
+        XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
+        _sgw_size(w); _sgw_resize(w); w->w.rectangle.mode=m;
     }
+}
 
-    if( (mode & SGW_FIXED) && !(w->w.mode & SGW_FIXED) ){
-        flags|=1;
-        hints.min_width=hints.max_width=w->w.rectangle.w; hints.min_height=hints.max_height=w->w.rectangle.h;
-        w->w.mode=(w->w.mode & SGW_MODES) | SGW_FIXED;
+void sgw_rect(SGW * const _w,const enum SGW f,const int x,const int y,const unsigned int width,const unsigned int height){
+    SGW_UNCONST(w,_w);
+    if(w->w.rectangle.mode=='m' && (f & SGW_XYWH)){
+        if(f & SGW_X) w->w.rectangle.x=x;
+        if(f & SGW_Y) w->w.rectangle.y=y;
+        if(f & SGW_W) w->w.rectangle.w=width;
+        if(f & SGW_H) w->w.rectangle.h=height;
+        XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
+        _sgw_size(w); _sgw_resize(w);
     }
-
-    if(flags & 1) XSetWMNormalHints(w->display,w->window,&hints);
-    if(flags & (2|1)) XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
-    if(flags & 4){ _sgw_size(w); _sgw_resize(w); }
 }
 
 static void _sgw_time_change(const struct timeval * const src,const long sec,const long usec,struct timeval * const t){
@@ -332,9 +325,11 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                     case ConfigureNotify:
                         while(XCheckTypedWindowEvent(w->display,w->window,ConfigureNotify,message)){}
                         message->xconfigure.border_width>>=1;
-                        {const int tmp[4]={message->xconfigure.x,message->xconfigure.y,message->xconfigure.width-message->xconfigure.border_width,message->xconfigure.height-message->xconfigure.border_width};
-                        if(!memcmp(&w->w.rectangle,tmp,sizeof(_w->rectangle))) break;
-                        memcpy(&w->w.rectangle,tmp,sizeof(_w->rectangle));}
+                        {
+                            const unsigned int sw=message->xconfigure.width-message->xconfigure.border_width, sh=message->xconfigure.height-message->xconfigure.border_width;
+                            if(_w->rectangle.x==message->xconfigure.x && _w->rectangle.y==message->xconfigure.y && _w->rectangle.w==sw && _w->rectangle.h==sh) break;
+                            w->w.rectangle.x=message->xconfigure.x; w->w.rectangle.y=message->xconfigure.y; w->w.rectangle.w=sw; w->w.rectangle.h=sh;
+                        }
                         _sgw_resize(w);
                         return SGE_RECTANGLE;
                     case KeyPress:

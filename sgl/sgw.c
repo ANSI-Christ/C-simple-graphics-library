@@ -72,9 +72,11 @@ static int _sgk_release(SGK key,struct _sgw * const w,SGE * const e){
 
 SGC *sgw_pixel(SGW * const w,const unsigned int x,const unsigned int y){
     return w->pixel+y*w->rectangle.w+x;
-    (void)_sgc_convert;
-    (void)_sgk_press;
-    (void)_sgk_release;
+    while(0){
+        _sgc_convert(NULL,0,0,NULL);
+        _sgk_press(0,NULL,NULL);
+        _sgk_release(0,NULL,NULL);
+    }
 }
 
 void sgw_fill(SGW * const w,const SGC c){

@@ -6,7 +6,9 @@
 #ifndef SG_KEY_H
 #define SG_KEY_H
 
-typedef enum{
+typedef unsigned int SGK;
+
+enum{
     SGK_LEFT   = 0x1,
     SGK_RIGHT  = 0x2,
     SGK_UP     = 0x3,
@@ -40,6 +42,6 @@ typedef enum{
     SGK_CTRL   = 1<<19,
     SGK_ALT    = 1<<20,
     SGK_SHIFT  = 1<<21,
-}SGK;
+};
 
 #endif /* SG_KEY_H */

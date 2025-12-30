@@ -6,12 +6,12 @@
 #ifndef SG_COLOR_H
 #define SG_COLOR_H
 
-typedef enum SGC SGC;
+typedef unsigned int SGC;
 
 SGC SGC_RGB(unsigned char red,unsigned char green,unsigned char blue,...);
 #define SGC_RGB(_r_,_g_,_b_,...)  ( ((__VA_ARGS__ +0)<<24) | (((unsigned char)(_r_))<<16) | (((unsigned char)(_g_))<<8) | (unsigned char)(_b_) )
 
-enum SGC{
+enum{
     SGC_BLACK        = SGC_RGB(0, 0, 0),
     SGC_RED          = SGC_RGB(255, 0, 0),
     SGC_GREEN        = SGC_RGB(0, 255, 0),
@@ -40,7 +40,7 @@ enum SGC{
     SGC_BROWN        = SGC_RGB(165, 42, 42),
     SGC_BEIGE        = SGC_RGB(245, 245, 220),
     SGC_LAVENDER     = SGC_RGB(230, 230, 250),
-    SGC_WHITE        = SGC_RGB(255, 255, 255)
+    SGC_WHITE        = SGC_RGB(255, 255, 255),
 };
 
 #endif /* SG_COLOR_H */

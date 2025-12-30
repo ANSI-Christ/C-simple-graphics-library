@@ -37,20 +37,13 @@ typedef union{
 
 
 enum SGW{
-
-    SGW_MODES = 0xFF,
-        SGW_X    = 1<<0,
-        SGW_Y    = 1<<1,
-        SGW_W    = 1<<2,
-        SGW_H    = 1<<3,
-        SGW_XY   = SGW_X|SGW_Y,
-        SGW_WH   = SGW_W|SGW_H,
-        SGW_XYWH = SGW_XY|SGW_WH,
-
-    SGW_STATES = 0xFF<<8,
-        SGW_MUTABLE  = 1<<8,
-        SGW_FIXED    = 1<<9,
-
+    SGW_X    = 1<<0,
+    SGW_Y    = 1<<1,
+    SGW_W    = 1<<2,
+    SGW_H    = 1<<3,
+    SGW_XY   = SGW_X|SGW_Y,
+    SGW_WH   = SGW_W|SGW_H,
+    SGW_XYWH = SGW_XY|SGW_WH
 };
 
 typedef struct _sgw{
@@ -60,13 +53,13 @@ typedef struct _sgw{
     void*(*allocator)(size_t);
     void(*deallocator)(void*);
 
-    enum SGW mode;
-
     SGK keys;
 
     struct{
         int x,y;
         unsigned int w,h;
+        char mode; /* 'f' = fixed, 'm' = mutable */
+        char state; /* 'n' = normal, 'f' = fullscrean, 't'=tray */
     }rectangle;
 
     struct{
@@ -89,13 +82,15 @@ void sgw_render(SGW *w);
 
 void sgw_fill(SGW *w,SGC c);
 
-void sgw_async(SGW *w,const void *p);
+void sgw_mode(SGW *w,char m);
 
-void sgw_rect(SGW *w,enum SGW mode,...);
+void sgw_async(SGW *w,const void *p);
 
 void sgw_title(SGW *w,const char *title);
 
 void sgw_cursor(SGW *w,unsigned char visible);
+
+void sgw_rect(SGW *w,enum SGW,int x,int y,unsigned int width,unsigned int height);
 
 enum SGE sgw_event(SGW *w,int t,SGE *e);
 
