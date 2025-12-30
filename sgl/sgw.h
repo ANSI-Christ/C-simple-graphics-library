@@ -55,8 +55,6 @@ enum SGW{
 
 typedef struct _sgw{
 
-    const char *title;
-
     SGC *pixel;
 
     void*(*allocator)(size_t);

@@ -189,7 +189,8 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
 
 void sgw_title(SGW * const _w,const char *title){
     SGW_UNCONST(w,_w);
-    SetWindowTextA(w->window,(w->w.title=title ? title : ""));
+    if(!title) title="";
+    SetWindowTextA(w->window,title);
 }
 
 void sgw_cursor(SGW * const _w,const unsigned char visible){
