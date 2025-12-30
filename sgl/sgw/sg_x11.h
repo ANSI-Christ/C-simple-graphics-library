@@ -90,14 +90,6 @@ typedef struct{
 
 #define SGW_UNCONST(_name_,_const_) sgw_x11 * const _name_ = (sgw_x11*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
 
-static char _sgw_check_window_type(const sgw_x11 * const w,const int t,XEvent * const e){
-    return XCheckTypedWindowEvent(w->display,w->window,t,e);
-}
-
-static char _sgw_check_window_mask(const sgw_x11 * const w,const long m,XEvent * const e){
-    return XCheckWindowEvent(w->display,w->window,m,e);
-}
-
 void sgw_close(SGW * const _w){
     SGW_UNCONST(w,_w);
     if(w){
@@ -142,6 +134,8 @@ static void _sgw_resize(sgw_x11 * const w){
             w->w.deallocator(w->image->data);
             w->image->data=(char*)w->w.allocator(size*w->color_bytes);
         }else w->image->data=(char*)w->w.pixel;
+        if(!w->w.pixel || !w->image->data)
+            w->color_max=0;
     }
     w->image->width=w->w.rectangle.w;
     w->image->height=w->w.rectangle.h;
@@ -174,6 +168,8 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
             break;
         if( !(w->display=XOpenDisplay(NULL)) )
             break;
+        XSynchronize(w->display,True);
+
         screen=DefaultScreen(w->display);
         w->xconn=XConnectionNumber(w->display);
         switch( (w->w.bitness=DefaultDepth(w->display,screen)) ){
@@ -196,11 +192,10 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         XSetWMProtocols(w->display,w->window,&w->atom.WM_DELETE_WINDOW,1);
         XSelectInput(w->display,w->window,ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
         XMapRaised(w->display,w->window);
-        XFlush(w->display);
+
         _sgw_size(w);
         _sgw_resize(w);
         fcntl(w->ctrl[0],F_SETFL, (O_NONBLOCK | fcntl(w->ctrl[0],F_GETFL)) );
-        { XEvent message[1]; XSync(w->display,0); while(_sgw_check_window_mask(w,ExposureMask|StructureNotifyMask,message)){} }
         return &w->w;
     }
     sgw_close(&w->w);
@@ -229,7 +224,9 @@ void sgw_async(SGW * const _w,const void * const p){
 void sgw_render(SGW * const _w){
     SGW_UNCONST(w,_w);
     _sgc_convert(w->w.pixel,w->image->width*w->image->height,w->w.bitness,w->image->data);
+    XSynchronize(w->display,False);
     XPutImage(w->display,w->window,w->gc,w->image,0,0,0,0,w->image->width,w->image->height);
+    XSynchronize(w->display,True);
 }
 
 void sgw_rect(SGW * const _w,const enum SGW mode,...){
@@ -264,10 +261,7 @@ void sgw_rect(SGW * const _w,const enum SGW mode,...){
     }
 
     if(flags & 1) XSetWMNormalHints(w->display,w->window,&hints);
-    if(flags & (2|1)){
-        XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
-        { XEvent message[1]; XSync(w->display,0); while(_sgw_check_window_mask(w,ExposureMask|StructureNotifyMask,message)){} }
-    }
+    if(flags & (2|1)) XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
     if(flags & 4){ _sgw_size(w); _sgw_resize(w); }
 }
 
@@ -330,12 +324,12 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE *e){
                             return SGE_CLOSE;
                         break;
                     case MotionNotify:
-                        while(_sgw_check_window_type(w,MotionNotify,message)){}
+                        while(XCheckTypedWindowEvent(w->display,w->window,MotionNotify,message)){}
                         w->w.cursor.x=message->xmotion.x;
                         w->w.cursor.y=message->xmotion.y;
                         return SGE_CURSOR;
                     case ConfigureNotify:
-                        while(_sgw_check_window_type(w,ConfigureNotify,message)){}
+                        while(XCheckTypedWindowEvent(w->display,w->window,ConfigureNotify,message)){}
                         message->xconfigure.border_width>>=1;
                         {const int tmp[4]={message->xconfigure.x,message->xconfigure.y,message->xconfigure.width-message->xconfigure.border_width,message->xconfigure.height-message->xconfigure.border_width};
                         if(!memcmp(&w->w.rectangle,tmp,sizeof(_w->rectangle))) break;

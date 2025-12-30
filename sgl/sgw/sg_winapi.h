@@ -145,6 +145,8 @@ static void _sgw_resize(sgw_win * const w){
             w->w.deallocator(w->local_buffer);
             w->local_buffer=w->w.allocator(size*w->color_bytes);
         }else w->local_buffer=w->w.pixel;
+        if(!w->w.pixel || !w->local_buffer)
+            w->color_max=0;
     }
     w->bmi->bmiHeader.biWidth=w->w.rectangle.w;
     w->bmi->bmiHeader.biHeight=-w->w.rectangle.h;
