@@ -235,16 +235,16 @@ void sgw_mode(SGW * const _w,const char m){
 void sgw_rect(SGW * const _w,const enum SGW f,const int x,const int y,const unsigned int width,const unsigned int height){
     SGW_UNCONST(w,_w);
     if(w->w.rectangle.mode=='m' && (f & SGW_XYWH)){
-        RECT r={0,0, w->w.rectangle.w,w->w.rectangle.h};
         if(f & SGW_X) w->w.rectangle.x=x;
         if(f & SGW_Y) w->w.rectangle.y=y;
         if(f & SGW_W) w->w.rectangle.w=width;
-        if(f & SGW_H) w->w.rectangle.h=height;
+        if(f & SGW_H){ w->w.rectangle.h=height; }{
+        RECT r={0,0, w->w.rectangle.w,w->w.rectangle.h};
         AdjustWindowRectEx(&r,GetWindowLongPtr(w->window,GWL_STYLE),FALSE,GetWindowLongPtr(w->window,GWL_EXSTYLE));
         r.right-=r.left; r.bottom-=r.top; r.left+=w->w.rectangle.x; r.top+=w->w.rectangle.y;
         SetWindowPos(w->window,0,r.left,r.top,r.right,r.bottom,0);
         _sgw_size(w); _sgw_resize(w);
-    }
+    }}
 }
 
 static void _sge_unrepeat(sgw_win * const w,MSG *e){
