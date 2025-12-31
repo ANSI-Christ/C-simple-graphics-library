@@ -86,6 +86,8 @@ static LRESULT CALLBACK _sgw_WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM
         case WM_CREATE: SetWindowLongPtr(hWnd,GWLP_USERDATA,(LONG_PTR)((LPCREATESTRUCTA)lParam)->lpCreateParams); break;
         case WM_DESTROY: KillTimer(hWnd,1); break;
         case WM_CLOSE: ((sgw_win*)GetWindowLongPtr(hWnd,GWLP_USERDATA))->message=message; return (LRESULT)0;
+        case WM_SYSKEYUP: ((sgw_win*)GetWindowLongPtr(hWnd,GWLP_USERDATA))->message=WM_KEYUP; return (LRESULT)0;
+        case WM_SYSKEYDOWN: ((sgw_win*)GetWindowLongPtr(hWnd,GWLP_USERDATA))->message=WM_KEYDOWN; return (LRESULT)0;
         case WM_MOVE:
         case WM_SIZE: ((sgw_win*)GetWindowLongPtr(hWnd,GWLP_USERDATA))->message=message; break;
     }
@@ -297,10 +299,8 @@ enum SGE sgw_event(SGW * const _w,const int t,SGE * const e){
             case WM_RBUTTONUP:    _SGW_RETURN_IF(_sgk_release(SGK_RB,&w->w,e), SGE_RELEASE);
             case WM_MBUTTONDOWN:  _SGW_RETURN_IF(_sgk_press(SGK_MB,&w->w,e), SGE_PRESS);
             case WM_MBUTTONUP:    _SGW_RETURN_IF(_sgk_release(SGK_MB,&w->w,e), SGE_RELEASE);
-            case WM_SYSKEYDOWN:
-            case WM_KEYDOWN:     _SGW_RETURN_IF(_sgk_press(_sgk_keyboard(message),&w->w,e), SGE_PRESS);
-            case WM_SYSKEYUP:
-            case WM_KEYUP:       _SGW_RETURN_IF(_sgk_release(_sgk_keyboard(message),&w->w,e), SGE_RELEASE);
+            case WM_KEYDOWN:      _SGW_RETURN_IF(_sgk_press(_sgk_keyboard(message),&w->w,e), SGE_PRESS);
+            case WM_KEYUP:        _SGW_RETURN_IF(_sgk_release(_sgk_keyboard(message),&w->w,e), SGE_RELEASE);
         }
     }
     SetTimer(w->window,(UINT_PTR)1,t>0?t:USER_TIMER_MAXIMUM,0);
