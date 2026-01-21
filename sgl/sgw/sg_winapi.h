@@ -163,8 +163,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         w->w.cursor.visible=1;
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
-        w->w.rectangle.mode='m';
-        w->w.rectangle.state='n';
+        w->w.rectangle.flags=SGW_XYWH|SGW_MUTABLE;
         pthread_once(&_sgw_once,_sgw_class_init);
         if( !(w->window=CreateWindowA(SGW_CLASS_NAME," ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
             break;
@@ -217,36 +216,42 @@ void sgw_render(SGW * const _w){
     SetDIBitsToDevice(w->dc, 0,0, width,height, 0,0, 0,height, w->local_buffer, w->bmi, DIB_RGB_COLORS);
 }
 
-void sgw_mode(SGW * const _w,const char m){
-    SGW_UNCONST(w,_w);
-    if(w->w.rectangle.mode!=m){
-        switch(m){
-            case 'm': SetWindowLongPtr(w->window,GWL_STYLE,GetWindowLongPtr(w->window,GWL_STYLE) | (WS_MAXIMIZEBOX|WS_THICKFRAME)); break;
-            case 'f': SetWindowLongPtr(w->window,GWL_STYLE,GetWindowLongPtr(w->window,GWL_STYLE) & ~(WS_MAXIMIZEBOX|WS_THICKFRAME)); break;
-            default: break;
-        }{
-        RECT r={0,0, w->w.rectangle.w,w->w.rectangle.h};
-        AdjustWindowRectEx(&r,GetWindowLongPtr(w->window,GWL_STYLE),FALSE,GetWindowLongPtr(w->window,GWL_EXSTYLE));
-        r.right-=r.left; r.bottom-=r.top; r.left+=w->w.rectangle.x; r.top+=w->w.rectangle.y;
-        SetWindowPos(w->window,0,r.left+1,r.top,r.right+1,r.bottom+1,SWP_FRAMECHANGED);
-        SetWindowPos(w->window,0,r.left,r.top,r.right,r.bottom,0);
-        _sgw_size(w); _sgw_resize(w); w->w.rectangle.mode=m;
-    }}
-}
-
 void sgw_rect(SGW * const _w,const enum SGW f,const int x,const int y,const unsigned int width,const unsigned int height){
     SGW_UNCONST(w,_w);
-    if(w->w.rectangle.mode=='m' && (f & SGW_XYWH)){
-        if(f & SGW_X) w->w.rectangle.x=x;
-        if(f & SGW_Y) w->w.rectangle.y=y;
-        if(f & SGW_W) w->w.rectangle.w=width;
-        if(f & SGW_H){ w->w.rectangle.h=height; }{
+    int flags=0;
+
+    if( (f & SGW_MUTABLE) && !(w->w.rectangle.flags & SGW_MUTABLE) ){
+        flags^=1;
+        SetWindowLongPtr(w->window,GWL_STYLE,GetWindowLongPtr(w->window,GWL_STYLE) | (WS_MAXIMIZEBOX|WS_THICKFRAME));
+        w->w.rectangle.flags=(w->w.rectangle.flags & SGW_MODES) | SGW_MUTABLE;
+    }
+
+    if( (f & SGW_MODES) && (w->w.rectangle.flags & SGW_MUTABLE) ){
+        if( (f & SGW_MODES)<=SGW_XYWH ){
+            if(f & SGW_X) w->w.rectangle.x=x;
+            if(f & SGW_Y) w->w.rectangle.y=y;
+            if(f & SGW_W) w->w.rectangle.w=width;
+            if(f & SGW_H) w->w.rectangle.h=height;
+            flags|=2;
+            w->w.rectangle.flags=SGW_XYWH | (w->w.rectangle.flags & SGW_STATES);
+        }
+    }
+
+    if( (f & SGW_FIXED) && !(w->w.rectangle.flags & SGW_FIXED) ){
+        flags^=1;
+        SetWindowLongPtr(w->window,GWL_STYLE,GetWindowLongPtr(w->window,GWL_STYLE) & ~(WS_MAXIMIZEBOX|WS_THICKFRAME));
+        w->w.rectangle.flags=(w->w.rectangle.flags & SGW_MODES) | SGW_FIXED;
+    }
+
+    if(flags){
         RECT r={0,0, w->w.rectangle.w,w->w.rectangle.h};
         AdjustWindowRectEx(&r,GetWindowLongPtr(w->window,GWL_STYLE),FALSE,GetWindowLongPtr(w->window,GWL_EXSTYLE));
         r.right-=r.left; r.bottom-=r.top; r.left+=w->w.rectangle.x; r.top+=w->w.rectangle.y;
+        if(flags & 1) SetWindowPos(w->window,0,r.left+1,r.top,r.right+1,r.bottom+1,SWP_FRAMECHANGED);
         SetWindowPos(w->window,0,r.left,r.top,r.right,r.bottom,0);
         _sgw_size(w); _sgw_resize(w);
-    }}
+    }
+
 }
 
 static void _sge_unrepeat(sgw_win * const w,MSG *e){

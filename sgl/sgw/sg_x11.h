@@ -162,8 +162,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         w->w.cursor.visible=1;
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
-        w->w.rectangle.mode='m';
-        w->w.rectangle.state='n';
+        w->w.rectangle.flags=SGW_XYWH|SGW_MUTABLE;
         w->ctrl[0]=w->ctrl[1]=-1;
         if(pipe(w->ctrl))
             break;
@@ -231,32 +230,37 @@ void sgw_render(SGW * const _w){
     XSynchronize(w->display,True);
 }
 
-void sgw_mode(SGW * const _w,const char m){
-    SGW_UNCONST(w,_w);
-    if(w->w.rectangle.mode!=m){
-        XSizeHints h;
-        switch(m){
-            case 'm': h.min_width=h.min_height=10; h.max_width=h.max_height=~(1<<(sizeof(h.max_width)*8-1)); break;
-            case 'f': h.min_width=h.max_width=w->w.rectangle.w; h.min_height=h.max_height=w->w.rectangle.h; break;
-            default: return;
-        }
-        h.flags=PMinSize|PMaxSize;
-        XSetWMNormalHints(w->display,w->window,&h);
-        XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
-        _sgw_size(w); _sgw_resize(w); w->w.rectangle.mode=m;
-    }
-}
-
 void sgw_rect(SGW * const _w,const enum SGW f,const int x,const int y,const unsigned int width,const unsigned int height){
     SGW_UNCONST(w,_w);
-    if(w->w.rectangle.mode=='m' && (f & SGW_XYWH)){
-        if(f & SGW_X) w->w.rectangle.x=x;
-        if(f & SGW_Y) w->w.rectangle.y=y;
-        if(f & SGW_W) w->w.rectangle.w=width;
-        if(f & SGW_H) w->w.rectangle.h=height;
-        XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
-        _sgw_size(w); _sgw_resize(w);
+    XSizeHints hints;
+    int flags=0;
+
+    if( (f & SGW_MUTABLE) && !(w->w.rectangle.flags & SGW_MUTABLE) ){
+        flags|=1;
+        hints.min_width=10; hints.min_height=2; hints.max_width=hints.max_height=~(1<<(sizeof(hints.max_width)*8-1));
+        w->w.rectangle.flags=(w->w.rectangle.flags & SGW_MODES) | SGW_MUTABLE;
     }
+
+    if( (f & SGW_MODES) && (w->w.rectangle.flags & SGW_MUTABLE) ){
+        if( (f & SGW_MODES)<=SGW_XYWH ){
+            if(f & SGW_X) w->w.rectangle.x=x;
+            if(f & SGW_Y) w->w.rectangle.y=y;
+            if(f & SGW_W) w->w.rectangle.w=width;
+            if(f & SGW_H) w->w.rectangle.h=height;
+            flags|=2|4;
+            w->w.rectangle.flags=SGW_XYWH | (w->w.rectangle.flags & SGW_STATES);
+        }
+    }
+
+    if( (f & SGW_FIXED) && !(w->w.rectangle.flags & SGW_FIXED) ){
+        flags|=1;
+        hints.min_width=hints.max_width=w->w.rectangle.w; hints.min_height=hints.max_height=w->w.rectangle.h;
+        w->w.rectangle.flags=(w->w.rectangle.flags & SGW_MODES) | SGW_FIXED;
+    }
+
+    if(flags & 1){ hints.flags=PMinSize|PMaxSize; XSetWMNormalHints(w->display,w->window,&hints); }
+    if(flags & (2|1)) XMoveResizeWindow(w->display,w->window,w->w.rectangle.x,w->w.rectangle.y,w->w.rectangle.w,w->w.rectangle.h);
+    if(flags & 4){ _sgw_size(w); _sgw_resize(w); }
 }
 
 static void _sgw_time_change(const struct timeval * const src,const long sec,const long usec,struct timeval * const t){
