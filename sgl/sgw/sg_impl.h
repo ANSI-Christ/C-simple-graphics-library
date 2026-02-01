@@ -6,7 +6,7 @@
 #define _SG_STR(_1_) #_1_
 #define _SG_INC(_n_) _SG_STR(sg_##_n_)
 
-#ifdef __WIN32
+#ifdef _WIN32
     #ifndef SG_IMPL
         #define SG_IMPL _SG_INC(winapi.h)
     #endif
