@@ -114,8 +114,7 @@ void sgw_close(SGW * const _w){
         }
         if(w->image){
             _w->deallocator(w->w.pixel);
-            if(w->image->data!=(char*)w->w.pixel)
-                _w->deallocator(w->image->data);
+            _w->deallocator(w->image->data);
             w->image->data=NULL;
             XDestroyImage(w->image);
         }

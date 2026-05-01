@@ -3,8 +3,7 @@
 /* Copyright (c) 2024 ANSI-Christ  */
 /* * * * * * * * * * * * * * * * * */
 
-#include <pthread.h>
-
+#include <stdio.h>
 #include <windows.h>
 #include <windowsx.h>
 
@@ -81,15 +80,12 @@ typedef struct{
     BITMAPINFO bmi[1];
     struct _sgw_color_info ci[1];
     unsigned int color_max;
+    char class_name[32];
 }sgw_win;
 
-#define SGW_UNCONST(_name_,_const_) sgw_win * const _name_ = (sgw_win*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
-
-#define WM_ASYNC_POINTER (WM_USER+1)
-
-#define SGW_CLASS_NAME "SGW_CLASS"
 #define SGW_STYLE (WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_BORDER | WS_MINIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME)
-static pthread_once_t _sgw_once=PTHREAD_ONCE_INIT;
+#define SGW_UNCONST(_name_,_const_) sgw_win * const _name_ = (sgw_win*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
+#define WM_ASYNC_POINTER (WM_USER+1)
 
 static LRESULT CALLBACK _sgw_WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam){
     switch(message){
@@ -104,21 +100,14 @@ static LRESULT CALLBACK _sgw_WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM
     return DefWindowProcA(hWnd, message, wParam, lParam);
 }
 
-static void _sgw_class_close(void){
-    UnregisterClassA(SGW_CLASS_NAME,0);
-}
-
-static void _sgw_class_init(void){
-    extern int atexit(void(*)(void));
-    {
-        WNDCLASSA wc;
-        memset(&wc,0,sizeof(wc));
-        wc.lpfnWndProc=_sgw_WndProc;
-        wc.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);
-        wc.lpszClassName=SGW_CLASS_NAME;
-        if(RegisterClassA(&wc))
-            atexit(_sgw_class_close);
-    }
+static int _sgw_register_class(sgw_win *const w){
+    WNDCLASSA wc;
+    memset(&wc,0,sizeof(wc));
+    snprintf(w->class_name,31,"SGW%p",w);
+    wc.lpfnWndProc=_sgw_WndProc;
+    wc.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);
+    wc.lpszClassName=w->class_name;
+    return RegisterClassA(&wc);
 }
 
 void sgw_close(SGW * const _w){
@@ -133,8 +122,8 @@ void sgw_close(SGW * const _w){
             DestroyCursor(w->cursor[0]);
         }
         _w->deallocator(w->w.pixel);
-        if(w->local_buffer!=(void*)w->w.pixel)
-            _w->deallocator(w->local_buffer);
+        _w->deallocator(w->local_buffer);
+        UnregisterClassA(w->class_name,0);
         _w->deallocator(w);
     }
 }
@@ -172,8 +161,9 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         w->w.allocator=allocator;
         w->w.deallocator=deallocator;
         w->w.rectangle.flags=SGW_XYWH|SGW_MUTABLE;
-        pthread_once(&_sgw_once,_sgw_class_init);
-        if( !(w->window=CreateWindowA(SGW_CLASS_NAME," ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
+        if(!_sgw_register_class(w))
+            break;
+        if( !(w->window=CreateWindowA(w->class_name," ",SGW_STYLE,50,50,100,100,NULL,NULL,NULL,w)) )
             break;
         if( !(w->cursor[0]=CreateCursor(NULL, 0,0, 1,1, "\xff","\x00")) )
             break;
