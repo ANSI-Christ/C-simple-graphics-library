@@ -61,16 +61,26 @@ static SGK _sgk_keyboard(const MSG * const msg){
     return 0;
 }
 
+static void _sgw_get_color_info(const BITMAPINFO * const bm,struct _sgw_color_info * const info){
+    info->pixel.bits=bm->bmiHeader.biBitCount;
+    info->pixel.bytes=info->pixel.bits / 8;
+    info->mask.r=0xFF0000; info->shift.r=16;
+    info->mask.g=0x00FF00; info->shift.g=8;
+    info->mask.b=0x0000FF; info->shift.b=0;
+    info->bits.r=info->bits.g=info->bits.b=8;
+}
+
+
 typedef struct{
     struct _sgw w;
     void *local_buffer;
-    unsigned int color_max;
-    unsigned char color_bytes;
     HWND window;
     HCURSOR cursor[2];
     HDC dc;
     UINT message;
     BITMAPINFO bmi[1];
+    struct _sgw_color_info ci[1];
+    unsigned int color_max;
 }sgw_win;
 
 #define SGW_UNCONST(_name_,_const_) sgw_win * const _name_ = (sgw_win*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
@@ -143,10 +153,8 @@ static void _sgw_resize(sgw_win * const w){
         w->color_max=size;
         w->w.deallocator(w->w.pixel);
         w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
-        if(w->color_bytes<4){
-            w->w.deallocator(w->local_buffer);
-            w->local_buffer=w->w.allocator(size*w->color_bytes);
-        }else w->local_buffer=w->w.pixel;
+        w->w.deallocator(w->local_buffer);
+        w->local_buffer=w->w.allocator(size*w->ci->pixel.bytes);
         if(!w->w.pixel || !w->local_buffer)
             w->color_max=0;
     }
@@ -170,17 +178,13 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         if( !(w->cursor[0]=CreateCursor(NULL, 0,0, 1,1, "\xff","\x00")) )
             break;
         w->dc=GetDC(w->window);
-        switch( (w->w.bitness=GetDeviceCaps(w->dc,BITSPIXEL)) ){
-            case 15: case 16: w->color_bytes=2; break;
-            case 24: case 32: w->color_bytes=4; break;
-            default: w->color_bytes=1; break;
-        }
         UpdateWindow(w->window);
         w->bmi->bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
         w->bmi->bmiHeader.biCompression=BI_RGB;
         w->bmi->bmiHeader.biPlanes=1;
-        w->bmi->bmiHeader.biBitCount=w->w.bitness;
+        w->bmi->bmiHeader.biBitCount=32;
         w->cursor[1]=(HCURSOR)GetClassLongPtr(w->window,GCLP_HCURSOR);
+        _sgw_get_color_info(w->bmi,w->ci);
         _sgw_size(w);
         _sgw_resize(w);
         return &w->w;
@@ -212,7 +216,7 @@ void sgw_render(SGW * const _w){
     SGW_UNCONST(w,_w);
     const unsigned int width=_w->rectangle.w;
     const unsigned int height=_w->rectangle.h;
-    _sgc_convert(w->w.pixel,width*height,w->w.bitness,w->local_buffer);
+    _sgc_convert(w->w.pixel,width*height,w->ci,w->local_buffer);
     SetDIBitsToDevice(w->dc, 0,0, width,height, 0,0, 0,height, w->local_buffer, w->bmi, DIB_RGB_COLORS);
 }
 

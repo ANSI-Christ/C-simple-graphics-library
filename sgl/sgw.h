@@ -72,8 +72,6 @@ typedef struct _sgw{
         unsigned char visible;
     }cursor;
 
-    unsigned char bitness;
-
 }const SGW;
 
 

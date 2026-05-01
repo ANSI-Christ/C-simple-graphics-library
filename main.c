@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #include "sgl/sgl.h"
-
+extern int rand(void);
 
 int main(int argc,char **argv){
     SGW *w=sgw_open(NULL,NULL);
@@ -22,9 +22,11 @@ int main(int argc,char **argv){
             break;
 
         switch(x){
-            case SGE_SCROLL:
-                c=rand();
+            case SGE_SCROLL:{
+                int tmp=rand();
+                c=*(SGC*)&tmp;
                 continue;
+            }
             case SGE_RECTANGLE:
                 sgm_cfg(m,w->pixel,w->rectangle.w,w->rectangle.h,sizeof(*w->pixel));
                 break;

@@ -72,6 +72,21 @@ static SGK _sgk_keyboard(void * const x11){
 }
 
 
+static void _sgw_get_color_info(const XImage * const img,struct _sgw_color_info * const info){
+    unsigned long tmp;
+    info->pixel.bits=img->bits_per_pixel;
+    info->pixel.bytes=info->pixel.bits / 8;
+#define _CASE(c,v) \
+    tmp=info->mask.c=img->v; info->shift.c=0; info->bits.c=0;\
+    while(tmp && !(tmp & 1)){info->shift.c++; tmp>>=1;}\
+    while(tmp & 1){info->bits.c++;tmp>>=1;}
+
+    _CASE(r,red_mask)
+    _CASE(g,green_mask)
+    _CASE(b,blue_mask)
+#undef _CASE
+}
+
 typedef struct{
     struct _sgw w;
     XImage *image;
@@ -85,7 +100,7 @@ typedef struct{
     }atom;
     int xconn, ctrl[2];
     unsigned int color_max;
-    unsigned char color_bytes;
+    struct _sgw_color_info ci[1];
 }sgw_x11;
 
 #define SGW_UNCONST(_name_,_const_) sgw_x11 * const _name_ = (sgw_x11*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
@@ -130,16 +145,14 @@ static void _sgw_resize(sgw_x11 * const w){
         w->color_max=size;
         w->w.deallocator(w->w.pixel);
         w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
-        if(w->color_bytes<4){
-            w->w.deallocator(w->image->data);
-            w->image->data=(char*)w->w.allocator(size*w->color_bytes);
-        }else w->image->data=(char*)w->w.pixel;
+        w->w.deallocator(w->image->data);
+        w->image->data=(char*)w->w.allocator(size*w->ci->pixel.bytes);
         if(!w->w.pixel || !w->image->data)
             w->color_max=0;
     }
     w->image->width=w->w.rectangle.w;
     w->image->height=w->w.rectangle.h;
-    w->image->bytes_per_line=w->image->width*w->color_bytes;
+    w->image->bytes_per_line=w->image->width*w->ci->pixel.bytes;
 }
 
 static char _sgw_create_cursor(sgw_x11 * const w){
@@ -172,16 +185,10 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
 
         screen=DefaultScreen(w->display);
         w->xconn=XConnectionNumber(w->display);
-        switch( (w->w.bitness=DefaultDepth(w->display,screen)) ){
-            case 15: case 16: w->color_bytes=2; break;
-            case 24: case 32: w->color_bytes=4; break;
-            default: w->color_bytes=1; break;
-        }
         w->gc=DefaultGC(w->display,screen);
-
         if( !(w->window=XCreateSimpleWindow(w->display,RootWindow(w->display,screen),50,50,50,50,1,BlackPixel(w->display,screen),WhitePixel(w->display,screen))) )
             break;
-        if( !(w->image=XCreateImage(w->display,DefaultVisual(w->display,screen),w->w.bitness,ZPixmap,0,NULL,50,50,XBitmapPad(w->display),0)) )
+        if( !(w->image=XCreateImage(w->display,DefaultVisual(w->display,screen),DefaultDepth(w->display,screen),ZPixmap,0,NULL,50,50,XBitmapPad(w->display),0)) )
             break;
         if( !_sgw_create_cursor(w) )
             break;
@@ -193,6 +200,7 @@ SGW *sgw_open(void*(*allocator)(size_t),void(*deallocator)(void*)){
         XSelectInput(w->display,w->window,ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
         XMapRaised(w->display,w->window);
 
+        _sgw_get_color_info(w->image,w->ci);
         _sgw_size(w);
         _sgw_resize(w);
         fcntl(w->ctrl[0],F_SETFL, (O_NONBLOCK | fcntl(w->ctrl[0],F_GETFL)) );
@@ -224,7 +232,7 @@ void sgw_async(SGW * const _w,const void * const p){
 
 void sgw_render(SGW * const _w){
     SGW_UNCONST(w,_w);
-    _sgc_convert(w->w.pixel,w->image->width*w->image->height,w->w.bitness,w->image->data);
+    _sgc_convert(w->w.pixel,w->image->width*w->image->height,w->ci,(unsigned char*)w->image->data);
     XSynchronize(w->display,False);
     XPutImage(w->display,w->window,w->gc,w->image,0,0,0,0,w->image->width,w->image->height);
     XSynchronize(w->display,True);
