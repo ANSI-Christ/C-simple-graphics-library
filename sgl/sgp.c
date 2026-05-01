@@ -404,8 +404,7 @@ int sgm_paste(const SGM * const m,const int x,const int y,const SGM * const p,ch
 }
 
 int sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const void *from,void *to,void *arg),void *arg){
-    const float rx=(float)m->w/c->w;
-    const float ry=(float)m->h/c->h;
+    const unsigned long int mw=m->w, cw=c->w, mh=m->h, ch=c->h;
     const void *from, *last_from=NULL;
     void *to, *last_to;
     unsigned int dx,dy;
@@ -418,7 +417,7 @@ int sgm_convert(const SGM * const m,const SGM * const c,char (*converter)(const 
     }
     for(dy=0;dy<c->h;++dy)
         for(dx=0;dx<c->w;++dx)
-            if( (to=sgm_at(c,dx,dy)) && (from=sgm_at(m,dx*rx,dy*ry)) ){
+            if( (to=sgm_at(c,dx,dy)) && (from=sgm_at(m,dx*mw/cw,dy*mh/ch)) ){
                 if(from!=last_from){
                     cmp=converter((last_from=from),(last_to=to),arg);
                     continue;

@@ -36,7 +36,7 @@ static void _sgc_convert(const SGC * const src,const unsigned int count,const st
     for(i=0;i<count;++i){
         const unsigned long r=(src[i].r*r_max)/255, g=(src[i].g*g_max)/255, b=(src[i].b*b_max)/255;
         const unsigned long pixel=(r<<shift_r) |(g<<shift_g) | (b<<shift_b);
-        for(j=0;j<bytes;++j) dst[i*bytes+j]=(pixel>>(b*8)) & 255;
+        for(j=0;j<bytes;++j) dst[i*bytes+j]=(pixel>>(j*8)) & 255;
     }
 }
 

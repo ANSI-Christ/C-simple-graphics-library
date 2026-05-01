@@ -144,8 +144,8 @@ static void _sgw_resize(sgw_x11 * const w){
     if(size>w->color_max){
         w->color_max=size;
         w->w.deallocator(w->w.pixel);
-        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
         w->w.deallocator(w->image->data);
+        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
         w->image->data=(char*)w->w.allocator(size*w->ci->pixel.bytes);
         if(!w->w.pixel || !w->image->data)
             w->color_max=0;

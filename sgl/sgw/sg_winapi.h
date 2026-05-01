@@ -152,8 +152,8 @@ static void _sgw_resize(sgw_win * const w){
     if(size>w->color_max){
         w->color_max=size;
         w->w.deallocator(w->w.pixel);
-        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
         w->w.deallocator(w->local_buffer);
+        w->w.pixel=(SGC*)w->w.allocator(size*sizeof(*w->w.pixel));
         w->local_buffer=w->w.allocator(size*w->ci->pixel.bytes);
         if(!w->w.pixel || !w->local_buffer)
             w->color_max=0;
@@ -216,7 +216,7 @@ void sgw_render(SGW * const _w){
     SGW_UNCONST(w,_w);
     const unsigned int width=_w->rectangle.w;
     const unsigned int height=_w->rectangle.h;
-    _sgc_convert(w->w.pixel,width*height,w->ci,w->local_buffer);
+    _sgc_convert(w->w.pixel,width*height,w->ci,(unsigned char*)w->local_buffer);
     SetDIBitsToDevice(w->dc, 0,0, width,height, 0,0, 0,height, w->local_buffer, w->bmi, DIB_RGB_COLORS);
 }
 
