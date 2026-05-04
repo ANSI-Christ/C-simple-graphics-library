@@ -62,10 +62,8 @@ static SGK _sgk_keyboard(const MSG * const msg){
 
 static void _sgw_get_color_info(const BITMAPINFO * const bm,struct _sgw_color_info * const info){
     info->pixel.bits=bm->bmiHeader.biBitCount;
-    info->pixel.bytes=info->pixel.bits / 8;
-    info->mask.r=0xFF0000; info->shift.r=16;
-    info->mask.g=0x00FF00; info->shift.g=8;
-    info->mask.b=0x0000FF; info->shift.b=0;
+    info->pixel.bytes=info->pixel.bits/8;
+    info->shift.r=16; info->shift.g=8; info->shift.b=0;
     info->bits.r=info->bits.g=info->bits.b=8;
 }
 
@@ -84,8 +82,9 @@ typedef struct{
 }sgw_win;
 
 #define SGW_STYLE (WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_BORDER | WS_MINIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME)
-#define SGW_UNCONST(_name_,_const_) sgw_win * const _name_ = (sgw_win*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
 #define WM_ASYNC_POINTER (WM_USER+1)
+static sgw_win *_sgw_cast(SGW * const p){const union{SGW *_;sgw_win *w;} w={p}; return w.w;}
+#define SGW_UNCONST(_name_,_const_) sgw_win * const _name_=_sgw_cast((_const_))
 
 static LRESULT CALLBACK _sgw_WndProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam){
     switch(message){

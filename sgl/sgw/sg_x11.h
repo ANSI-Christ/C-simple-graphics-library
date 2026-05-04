@@ -73,17 +73,16 @@ static SGK _sgk_keyboard(void * const x11){
 
 
 static void _sgw_get_color_info(const XImage * const img,struct _sgw_color_info * const info){
-    unsigned long tmp;
     info->pixel.bits=img->bits_per_pixel;
-    info->pixel.bytes=info->pixel.bits / 8;
-#define _CASE(c,v) \
-    tmp=info->mask.c=img->v; info->shift.c=0; info->bits.c=0;\
+    info->pixel.bytes=info->pixel.bits/8;
+#define _CASE(c,v) do{\
+    unsigned long tmp=img->v; info->shift.c=0; info->bits.c=0;\
     while(tmp && !(tmp & 1)){info->shift.c++; tmp>>=1;}\
-    while(tmp & 1){info->bits.c++;tmp>>=1;}
+    while(tmp & 1){info->bits.c++;tmp>>=1;} }while(0)
 
-    _CASE(r,red_mask)
-    _CASE(g,green_mask)
-    _CASE(b,blue_mask)
+    _CASE(r,red_mask);
+    _CASE(g,green_mask);
+    _CASE(b,blue_mask);
 #undef _CASE
 }
 
@@ -103,7 +102,8 @@ typedef struct{
     struct _sgw_color_info ci[1];
 }sgw_x11;
 
-#define SGW_UNCONST(_name_,_const_) sgw_x11 * const _name_ = (sgw_x11*)({ const union{const void *_; void *w;}_1_={_const_}; _1_.w; })
+static sgw_x11 *_sgw_cast(SGW * const p){const union{SGW *_;sgw_x11 *w;} w={p}; return w.w;}
+#define SGW_UNCONST(_name_,_const_) sgw_x11 * const _name_=_sgw_cast((_const_))
 
 void sgw_close(SGW * const _w){
     SGW_UNCONST(w,_w);

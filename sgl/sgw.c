@@ -12,10 +12,6 @@
 struct _sgw_color_info{
 
     struct{
-        unsigned long r,g,b;
-    }mask;
-
-    struct{
         unsigned int r,g,b;
     }shift;
 
@@ -31,11 +27,10 @@ struct _sgw_color_info{
 
 static void _sgc_convert(const SGC * const src,const unsigned int count,const struct _sgw_color_info * const info,unsigned char * const dst){
     const unsigned int bytes=info->pixel.bytes, shift_r=info->shift.r, shift_g=info->shift.g, shift_b=info->shift.b;
-    const unsigned int r_max=(1<<info->bits.r)-1, g_max=(1<<info->bits.g)-1, b_max=(1<<info->bits.b)-1;
+    const unsigned long r_max=(1<<info->bits.r)-1, g_max=(1<<info->bits.g)-1, b_max=(1<<info->bits.b)-1;
     unsigned int i,j;
     for(i=0;i<count;++i){
-        const unsigned long r=(src[i].r*r_max)/255, g=(src[i].g*g_max)/255, b=(src[i].b*b_max)/255;
-        const unsigned long pixel=(r<<shift_r) |(g<<shift_g) | (b<<shift_b);
+        const unsigned long pixel=(((src[i].r*r_max)/255)<<shift_r) | (((src[i].g*g_max)/255)<<shift_g) | (((src[i].b*b_max)/255)<<shift_b);
         for(j=0;j<bytes;++j) dst[i*bytes+j]=(pixel>>(j*8)) & 255;
     }
 }
