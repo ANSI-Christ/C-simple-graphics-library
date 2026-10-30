@@ -176,7 +176,7 @@ void sgm_oval(const SGM * const m,const int x,const int y,const unsigned int rw,
         case 2: sgm_column(m,x,y-rh,rh<<1,c); return;
         case 3: sgm_set(m,x,y,c); return;
     }{
-    const long w2=rw*rw, h2=rh*rh, a2=h2<<1, a4=h2<<2, b2=w2<<1, b4=w2<<2;
+    const long w2=(long)rw*rw, h2=(long)rh*rh, a2=h2<<1, a4=h2<<2, b2=w2<<1, b4=w2<<2;
     long d=a2*(rw-1)*rw+h2+b2*(1-h2);
     int dy=0,dx=rw;
     while(h2*dx>w2*dy){
@@ -276,10 +276,10 @@ static void _sgm_border(int b[5][4],const int x,const int y,const unsigned int r
     if(end-st==4){
         p=b[4];
         switch(st){
-            case 0: p[0]=x2;   p[2]=y2; p[1]=x+rw-x2;   p[3]=y-y2; break;
-            case 1: p[0]=x-rw; p[2]=y2; p[1]=x2-(x-rw); p[3]=y-y2; break;
-            case 2: p[0]=x-rw; p[2]=y;  p[1]=x2-(x-rw); p[3]=y2-y; break;
-            case 3: p[0]=x2;   p[2]=y;  p[1]=x+rw-x2;   p[3]=y2-y; break;
+            case 0: p[0]=x2;   p[2]=y2;   p[1]=x+rw-x2;   p[3]=y-y2; break;
+            case 1: p[0]=x2;   p[2]=y-rh; p[1]=x-x2;      p[3]=y2-(y-rh); break;
+            case 2: p[0]=x-rw; p[2]=y;    p[1]=x2-(x-rw); p[3]=y2-y; break;
+            case 3: p[0]=x;    p[2]=y2;   p[1]=x2-x;      p[3]=y+rh-y2; break;
         }
         ++p[1],++p[3];
     }else{
@@ -609,7 +609,7 @@ void *sgp_at(const SGP * const p,const double x,const double y){
 }
 
 void sgp_set(const SGP * const p,const double x,const double y,const void * const c){
-    void *d=sgp_at(p,x,y);
+    void * const d=sgp_at(p,x,y);
     if(d) memcpy(d,c,p->m->color_bytes);
 }
 
